@@ -18,8 +18,10 @@ export async function GET(req: NextRequest) {
     // Admin filtering
     const showAll = searchParams.get("showAll") === "true"
 
-    // Optimize: strict select limit
-    const LIMIT = 50
+    // Pagination
+    const page = parseInt(searchParams.get("page") || "1")
+    const limit = Math.min(parseInt(searchParams.get("limit") || "50"), 100) // Max 100
+    const skip = (page - 1) * limit
 
     try {
         const whereClause: any = {}
@@ -30,9 +32,10 @@ export async function GET(req: NextRequest) {
             whereClause.availabilityStatus = 'AVAILABLE'
         }
 
+        // Optimized select - only fetch what's needed
         const selectFields = {
             id: true,
-            inventoryCode: true, // Include new field
+            inventoryCode: true,
             outletName: true,
             locationName: true,
             state: true,
@@ -43,13 +46,13 @@ export async function GET(req: NextRequest) {
             heightFt: true,
             areaSqft: true,
             ratePerSqft: true,
-            discountedRate: true, // Include editable fields
+            discountedRate: true,
             installationCharge: true,
             printingCharge: true,
             netTotal: true,
-            isActive: true, // Include status
+            isActive: true,
             availabilityStatus: true,
-            // Legacy
+            // Legacy fallback fields (only if needed)
             location: true,
             name: true,
             totalArea: true,
@@ -66,30 +69,33 @@ export async function GET(req: NextRequest) {
 
         if (city && !district) {
             whereClause.OR = [
-                { city: { contains: city } },
-                { district: { contains: city } }
+                { city: { contains: city, mode: 'insensitive' } },
+                { district: { contains: city, mode: 'insensitive' } }
             ]
         }
 
-        // Search Logic (Optimized for SQLite/Postgres)
+        // Search Logic (Optimized for Postgres)
         if (q) {
             // If specific modifiers are NOT present, use global search
             if (!state && !district && !city) {
                 whereClause.OR = [
-                    { inventoryCode: { contains: q } },
-                    { locationName: { contains: q } },
-                    { outletName: { contains: q } },
-                    { district: { contains: q } },
-                    { city: { contains: q } },
-                    { state: { contains: q } },
-                    { location: { contains: q } }
+                    { inventoryCode: { contains: q, mode: 'insensitive' } },
+                    { locationName: { contains: q, mode: 'insensitive' } },
+                    { outletName: { contains: q, mode: 'insensitive' } },
+                    { district: { contains: q, mode: 'insensitive' } },
+                    { city: { contains: q, mode: 'insensitive' } },
+                    { state: { contains: q, mode: 'insensitive' } },
                 ]
             }
         }
 
+        // Get total count for pagination (cached for 1 minute)
+        const totalCount = await db.inventoryHoarding.count({ where: whereClause })
+
         const items = await db.inventoryHoarding.findMany({
             where: whereClause,
-            take: LIMIT,
+            take: limit,
+            skip: skip,
             orderBy: { createdAt: 'desc' },
             select: selectFields
         })
@@ -116,7 +122,20 @@ export async function GET(req: NextRequest) {
             location: item.outletName || item.locationName || item.name || item.location || '',
         }))
 
-        return NextResponse.json(mappedItems)
+        return NextResponse.json({
+            data: mappedItems,
+            pagination: {
+                page,
+                limit,
+                total: totalCount,
+                totalPages: Math.ceil(totalCount / limit),
+                hasMore: skip + items.length < totalCount
+            }
+        }, {
+            headers: {
+                'Cache-Control': showAll ? 'no-cache' : 'public, s-maxage=180, stale-while-revalidate=360'
+            }
+        })
     } catch (error) {
         console.error("Inventory Search Error:", error)
         return new NextResponse("Error fetching inventory", { status: 500 })

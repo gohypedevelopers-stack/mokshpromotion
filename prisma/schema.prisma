@@ -78,6 +78,7 @@ model Lead {
   email           String?
   source          String?
   status          String    @default("NEW") // Enum: NEW, FOLLOW_UP, INTERESTED, IN_PROGRESS, DEAL_CLOSED, LOST, HANDOFF_TO_OPS, UNDER_PRINTING, UNDER_INSTALLATION, CLOSED, PROCESSING
+
   notes           String?
   
   // Ops workflow fields
@@ -123,6 +124,7 @@ model Lead {
   @@index([opsUserId])
   @@index([status])
   @@index([email])
+  @@index([phone])
   @@index([createdAt])
 }
 

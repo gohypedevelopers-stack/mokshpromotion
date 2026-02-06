@@ -1,15 +1,14 @@
 import { db } from "@/lib/db"
 import { NextResponse } from "next/server"
+import { unstable_cache } from 'next/cache'
 
-/**
- * GET /api/inventory/states
- * Returns list of unique states that have inventory
- */
-export async function GET() {
-    try {
+// Cache the states query for 5 minutes
+const getCachedStates = unstable_cache(
+    async () => {
         const states = await (db.inventoryHoarding.findMany as any)({
             where: {
-                availabilityStatus: 'AVAILABLE'
+                availabilityStatus: 'AVAILABLE',
+                isActive: true
             },
             select: {
                 state: true
@@ -17,12 +16,32 @@ export async function GET() {
             distinct: ['state']
         })
 
-        const stateList = states
+        return states
             .map((s: any) => s.state)
             .filter(Boolean)
             .sort()
+    },
+    ['inventory-states'],
+    {
+        revalidate: 300, // 5 minutes
+        tags: ['inventory-states']
+    }
+)
 
-        return NextResponse.json(stateList)
+/**
+ * GET /api/inventory/states
+ * Returns list of unique states that have inventory
+ * Cached for 5 minutes for better performance
+ */
+export async function GET() {
+    try {
+        const stateList = await getCachedStates()
+
+        return NextResponse.json(stateList, {
+            headers: {
+                'Cache-Control': 'public, s-maxage=300, stale-while-revalidate=600'
+            }
+        })
     } catch (error) {
         console.error('Error fetching states:', error)
         return new NextResponse("Failed to fetch states", { status: 500 })
