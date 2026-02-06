@@ -42,14 +42,52 @@ function LoginForm() {
 
             if (res?.error) {
                 setError("Invalid email or password")
-            } else {
-                router.push(callbackUrl)
-                router.refresh()
+                setLoading(false)
+                return
             }
+
+            // Wait a bit for the session to be established
+            await new Promise(resolve => setTimeout(resolve, 500))
+
+            // Get the fresh session to determine redirect
+            const { getSession } = await import("next-auth/react")
+            const session = await getSession()
+
+            if (!session?.user?.role) {
+                setError("Session initialization failed. Please try again.")
+                setLoading(false)
+                return
+            }
+
+            // Redirect to role-specific dashboard
+            let targetUrl = callbackUrl
+            if (callbackUrl === "/dashboard") {
+                switch (session.user.role) {
+                    case "SUPER_ADMIN":
+                        targetUrl = "/dashboard/super-admin"
+                        break
+                    case "ADMIN":
+                        targetUrl = "/dashboard/admin"
+                        break
+                    case "SALES":
+                        targetUrl = "/dashboard/sales"
+                        break
+                    case "FINANCE":
+                        targetUrl = "/dashboard/finance"
+                        break
+                    case "OPERATIONS":
+                        targetUrl = "/dashboard/operations"
+                        break
+                    default:
+                        targetUrl = "/dashboard/sales"
+                }
+            }
+
+            router.push(targetUrl)
+            router.refresh()
         } catch (err) {
             console.error(err)
             setError("Something went wrong")
-        } finally {
             setLoading(false)
         }
     }
