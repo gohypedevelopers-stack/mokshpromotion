@@ -34,7 +34,7 @@ async function verifyUpsert() {
     console.log("Created item:", item1.id, item1.inventoryCode)
 
     // 3. Update (Upsert match)
-    const existing = await db.inventoryHoarding.findUnique({
+    const existing = await db.inventoryHoarding.findFirst({
         where: { inventoryCode: code }
     })
 

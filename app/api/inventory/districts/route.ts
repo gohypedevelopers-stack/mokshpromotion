@@ -1,13 +1,15 @@
 import { db } from "@/lib/db"
-import { NextResponse } from "next/server"
+import { NextResponse, NextRequest } from "next/server"
+
+export const dynamic = 'force-dynamic'
 
 /**
  * GET /api/inventory/districts?state=UP
  * Returns list of districts in a state with count of locations
  */
-export async function GET(req: Request) {
+export async function GET(req: NextRequest) {
     try {
-        const { searchParams } = new URL(req.url)
+        const searchParams = req.nextUrl.searchParams
         const state = searchParams.get("state")
 
         if (!state) {

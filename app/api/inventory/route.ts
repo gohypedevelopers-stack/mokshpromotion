@@ -1,13 +1,14 @@
 
 import { db } from "@/lib/db"
-import { NextResponse } from "next/server"
+import { NextRequest, NextResponse } from "next/server"
 import { getServerSession } from "next-auth"
 import { authOptions } from "@/lib/auth"
 
 export const maxDuration = 300; // 5 minutes for large upserts
+export const dynamic = 'force-dynamic'
 
-export async function GET(req: Request) {
-    const { searchParams } = new URL(req.url)
+export async function GET(req: NextRequest) {
+    const searchParams = req.nextUrl.searchParams
     const q = searchParams.get("search") || searchParams.get("q") || ""
     const state = searchParams.get("state")
     const city = searchParams.get("city")
@@ -189,7 +190,7 @@ export async function POST(req: Request) {
 
             // 3. UPSERT
             // Check if exists
-            const existing = await db.inventoryHoarding.findUnique({
+            const existing = await db.inventoryHoarding.findFirst({
                 where: { inventoryCode }
             });
 

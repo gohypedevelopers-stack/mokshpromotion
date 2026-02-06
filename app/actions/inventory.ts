@@ -59,7 +59,7 @@ export async function bulkUpdatePrices(csvText: string) {
             }
 
             // Find item
-            const item = await db.inventoryHoarding.findUnique({
+            const item = await db.inventoryHoarding.findFirst({
                 where: { inventoryCode: code }
             });
 

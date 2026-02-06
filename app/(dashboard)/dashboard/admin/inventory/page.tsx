@@ -1,5 +1,7 @@
 
 import { db } from "@/lib/db"
+
+export const dynamic = 'force-dynamic'
 import InventoryUploader from "@/components/dashboard/InventoryUploader"
 import InventoryTable from "@/components/dashboard/InventoryTable"
 
