@@ -37,7 +37,10 @@ export function Sidebar({ role = "SALES", isOpen, setIsOpen }: SidebarProps) {
             label: "Overview",
             href: "/dashboard",
             icon: LayoutDashboard,
-            active: pathname === "/dashboard" || (pathname.startsWith("/dashboard/sales") && !pathname.includes("leads") && !pathname.includes("projects") && !pathname.includes("plans")) || (pathname.startsWith("/dashboard/admin") && !pathname.includes("inventory") && !pathname.includes("users")),
+            active: pathname === "/dashboard" ||
+                pathname === "/dashboard/admin" ||
+                pathname === "/dashboard/finance" ||
+                pathname === "/dashboard/operations",
             roles: ["ADMIN", "SALES", "FINANCE", "OPERATIONS"]
         },
         {
