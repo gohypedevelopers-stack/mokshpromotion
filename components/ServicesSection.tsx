@@ -8,7 +8,7 @@ const services = [
         title: "Fuel Stations Media",
         description: "Engage vehicle owners with high-impact product sampling and branding at premium fuel stations across India.",
         image: "/images/services/fuel-station.jpg",
-        link: "/petrolpump-media",
+        link: "/services/fuel-station-media",
         icon: <Zap className="w-5 h-5" />
     },
     {

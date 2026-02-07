@@ -36,7 +36,7 @@ export default function Navbar() {
             name: "SERVICES",
             path: "/services",
             children: [
-                { name: "FUEL STATION MEDIA", path: "/petrolpump-media", separator: true },
+                { name: "FUEL STATION MEDIA", path: "/services/fuel-station-media", separator: true },
                 { name: "BTL/ATL", path: "/services/btl-atl" },
                 { name: "DISPLAY SPACE", path: "/services/display-space" },
                 { name: "BRANDINGS", path: "/services/brandings" },
