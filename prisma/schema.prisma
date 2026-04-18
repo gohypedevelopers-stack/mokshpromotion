@@ -298,6 +298,8 @@ model InventoryHoarding {
   id                  Int      @id @default(autoincrement())
   
   inventoryCode       String?
+  huid                String?  // Matching spreadsheet "Huid"
+  imageUrl            String?  // For image previews
   isActive            Boolean  @default(true)
 
   // Source tracking

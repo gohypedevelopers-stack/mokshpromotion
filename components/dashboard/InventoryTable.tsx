@@ -11,6 +11,7 @@ import {
     TableHeader,
     TableRow,
 } from "@/components/ui/table"
+import Image from "next/image"
 import {
     Select,
     SelectContent,
@@ -21,7 +22,8 @@ import {
 import { Badge } from "@/components/ui/badge"
 import { Search, Loader2, Save, Archive, RefreshCw } from "lucide-react"
 import { updateInventoryItem, toggleInventoryStatus } from "@/app/actions/inventory"
-import { toast } from "sonner" // Assuming sonner or use toast hook
+import { formatCurrency } from "@/lib/utils"
+import { toast } from "sonner" 
 import { useRouter } from "next/navigation"
 
 interface InventoryItem {
@@ -34,6 +36,7 @@ interface InventoryItem {
     isActive: boolean
     discountedRate: number
     netTotal: number
+    imageUrl?: string | null
     availabilityStatus: string
 }
 
@@ -164,6 +167,7 @@ export default function InventoryTable({ initialData }: { initialData: Inventory
                 <Table>
                     <TableHeader>
                         <TableRow>
+                            <TableHead className="w-[80px]">Preview</TableHead>
                             <TableHead>Code</TableHead>
                             <TableHead>Outlet Details</TableHead>
                             <TableHead>State/District</TableHead>
@@ -176,13 +180,29 @@ export default function InventoryTable({ initialData }: { initialData: Inventory
                     <TableBody>
                         {filteredData.length === 0 ? (
                             <TableRow>
-                                <TableCell colSpan={7} className="text-center h-24 text-gray-500">
+                                <TableCell colSpan={8} className="text-center h-24 text-gray-500">
                                     No items found.
                                 </TableCell>
                             </TableRow>
                         ) : (
                             filteredData.map((item) => (
                                 <TableRow key={item.id} className={!item.isActive ? "bg-gray-50 opacity-75" : ""}>
+                                    <TableCell>
+                                        <div className="relative h-10 w-10 rounded border overflow-hidden bg-gray-50">
+                                            {item.imageUrl ? (
+                                                <Image 
+                                                    src={item.imageUrl} 
+                                                    alt="Stock" 
+                                                    fill 
+                                                    className="object-cover"
+                                                />
+                                            ) : (
+                                                <div className="flex h-full w-full items-center justify-center text-[10px] text-gray-300">
+                                                    No Img
+                                                </div>
+                                            )}
+                                        </div>
+                                    </TableCell>
                                     <TableCell className="font-mono text-xs">{item.inventoryCode || "-"}</TableCell>
                                     <TableCell>
                                         <div className="font-medium">{item.outletName}</div>
@@ -214,7 +234,7 @@ export default function InventoryTable({ initialData }: { initialData: Inventory
                                             />
                                         ) : (
                                             <span className="cursor-pointer hover:underline decoration-dashed" onClick={() => handleEditStart(item)}>
-                                                {item.discountedRate ? `₹${item.discountedRate.toLocaleString()}` : "-"}
+                                                {item.discountedRate ? formatCurrency(item.discountedRate) : "-"}
                                             </span>
                                         )}
                                     </TableCell>
@@ -228,7 +248,7 @@ export default function InventoryTable({ initialData }: { initialData: Inventory
                                             />
                                         ) : (
                                             <span className="cursor-pointer hover:underline decoration-dashed" onClick={() => handleEditStart(item)}>
-                                                {item.netTotal ? `₹${item.netTotal.toLocaleString()}` : "-"}
+                                                {item.netTotal ? formatCurrency(item.netTotal) : "-"}
                                             </span>
                                         )}
                                     </TableCell>

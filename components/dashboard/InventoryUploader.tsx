@@ -80,8 +80,8 @@ export default function InventoryUploader() {
                         const row = rows[i] as string[]
                         const rowNormalized = row.map(c => c?.toString().toLowerCase().trim())
 
-                        // Look for Inventory Code OR State/District
-                        if (rowNormalized.includes('inventory code') || rowNormalized.includes('code') || (rowNormalized.includes('state') && rowNormalized.includes('district'))) {
+                        // Look for Huid, Inventory Code OR State/District
+                        if (rowNormalized.includes('huid') || rowNormalized.includes('inventory code') || rowNormalized.includes('code') || (rowNormalized.includes('state') && rowNormalized.includes('district'))) {
                             headerRowIndex = i
                             headers = row.map(h => h?.toString().trim())
                             break

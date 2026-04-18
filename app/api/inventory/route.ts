@@ -36,6 +36,9 @@ export async function GET(req: NextRequest) {
         const selectFields = {
             id: true,
             inventoryCode: true,
+            huid: true,
+            imageUrl: true,
+            sourceSrNo: true,
             outletName: true,
             locationName: true,
             state: true,
@@ -52,7 +55,6 @@ export async function GET(req: NextRequest) {
             netTotal: true,
             isActive: true,
             availabilityStatus: true,
-            // Legacy fallback fields (only if needed)
             location: true,
             name: true,
             totalArea: true,
@@ -102,7 +104,9 @@ export async function GET(req: NextRequest) {
 
         const mappedItems = items.map((item: any) => ({
             id: item.id,
-            inventoryCode: item.inventoryCode,
+            inventoryCode: item.inventoryCode || item.huid,
+            huid: item.huid,
+            imageUrl: item.imageUrl,
             sourceSrNo: item.sourceSrNo,
             outletName: item.outletName || item.name || '',
             locationName: item.locationName || item.location || '',
@@ -184,28 +188,29 @@ export async function POST(req: Request) {
                 return null;
             }
 
-            const codeVal = getVal(["inventorycode", "code", "uniqueid", "id"]);
-            const inventoryCode = codeVal ? String(codeVal).trim() : null;
-
-            if (!inventoryCode) {
-                errorCount++;
-                errors.push(`Row missed Inventory Code: ${JSON.stringify(rawItem).slice(0, 50)}...`);
-                continue;
-            }
-
-            // 2. Map other fields
+            const huid = getVal(["huid", "inventorycode", "uniqueid"]);
+            const srNo = parseInt(String(getVal(["srno"]) || "0")) || null;
             const outletName = getVal(["nameoftheoutlet", "outletname", "name", "location"]) || "Unknown Outlet";
             const locationName = getVal(["address", "location", "locationname"]) || "";
             const state = getVal(["state"]) || "";
             const district = getVal(["district"]) || "";
+            const areaType = getVal(["urbanhighwayrural", "areatype", "urbanrural"]);
+            
+            const inventoryCode = String(huid || getVal(["code", "uniqueid", "id"]) || "").trim();
 
-            // ... parsing numerics (simplified here, assuming data is relatively clean or we use helpers)
-            // Re-using the logic from current file's mapping
+            if (!inventoryCode) {
+                errorCount++;
+                errors.push(`Row missed Huid / Inventory Code: ${JSON.stringify(rawItem).slice(0, 50)}...`);
+                continue;
+            }
+
             const width = parseFloat(String(getVal(["widthinft", "widthft", "width"]) || "0").replace(/[^\d.-]/g, '')) || null;
             const height = parseFloat(String(getVal(["heightinft", "heightft", "height"]) || "0").replace(/[^\d.-]/g, '')) || null;
+            const area = parseFloat(String(getVal(["totalareainsqft", "area", "totalarea"]) || "0").replace(/[^\d.-]/g, '')) || null;
             const rate = parseFloat(String(getVal(["rates", "ratepersqft", "rate"]) || "0").replace(/[^\d.-]/g, '')) || null;
-            const discountedRate = parseFloat(String(getVal(["discountedrates", "discountedrate"]) || "0").replace(/[^\d.-]/g, '')) || null;
+            const printing = parseFloat(String(getVal(["printintingcharge", "printingcharge", "printing"]) || "0").replace(/[^\d.-]/g, '')) || null;
             const netTotal = parseFloat(String(getVal(["nettotal", "total"]) || "0").replace(/[^\d.-]/g, '')) || null;
+            const imageUrl = getVal(["imgurl", "link", "imageurl"]);
 
             // 3. UPSERT
             // Check if exists
@@ -215,19 +220,21 @@ export async function POST(req: Request) {
 
             const payLoad = {
                 inventoryCode,
+                huid: String(huid || ""),
+                sourceSrNo: srNo,
                 outletName: String(outletName),
                 locationName: String(locationName),
                 state: String(state),
                 district: String(district),
+                areaType: String(areaType || ""),
                 widthFt: width,
                 heightFt: height,
+                areaSqft: area,
                 ratePerSqft: rate,
-                discountedRate: discountedRate,
+                printingCharge: printing,
                 netTotal: netTotal,
-                isActive: true, // Reactivate if it was archived? Yes, import usually implies active.
-                // Preserve existing status if updating? 
-                // If updating, we keep availabilityStatus. 
-                // But isActive, if imported, should probably be true.
+                imageUrl: String(imageUrl || ""),
+                isActive: true,
             };
 
             if (existing) {
@@ -259,9 +266,13 @@ export async function POST(req: Request) {
             errors,
             message: `Processed. Created: ${successCount}, Updated: ${updateCount}, Failed: ${errorCount}`
         })
-    } catch (error) {
+    } catch (error: any) {
         console.error("INVENTORY_UPLOAD_ERROR", error)
-        return new NextResponse("Failed to upload inventory", { status: 500 })
+        return NextResponse.json({ 
+            success: false, 
+            message: "Failed to upload inventory",
+            error: error?.message 
+        }, { status: 500 })
     }
 }
 
@@ -273,5 +284,5 @@ export async function DELETE(req: Request) {
     // For now, removing the "Delete All" capability or making it require Super Admin + Confirmation
     // Better: Return 405 Method Not Allowed to strictly prevent wipe.
 
-    return new NextResponse("Bulk delete is disabled. Please use Archive.", { status: 405 })
+    return NextResponse.json({ success: false, message: "Bulk delete is disabled. Please use Archive." }, { status: 405 })
 }

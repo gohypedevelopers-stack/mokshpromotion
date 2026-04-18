@@ -8,7 +8,7 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { Card, CardContent } from "@/components/ui/card";
 import { MapPin, Maximize2, X, Info, ChevronRight, ArrowLeft, Building2, Map } from "lucide-react";
 import { useCart } from "@/context/CartContext";
-import { cn } from "@/lib/utils";
+import { cn, formatCurrency } from "@/lib/utils";
 import { Badge } from "@/components/ui/badge";
 
 interface InventoryItem {
@@ -33,6 +33,7 @@ interface InventoryItem {
     printingCharge: number | null;
     installationCharge: number | null;
     netTotal: number | null;
+    imageUrl?: string | null;
     availabilityStatus?: string;
 }
 
@@ -127,6 +128,7 @@ export default function InventoryList({ inventory }: InventoryListProps) {
         rate: item.ratePerSqft || item.rate,
         printingCharge: item.printingCharge,
         netTotal: item.netTotal,
+        imageUrl: item.imageUrl,
         state: item.state,
         city: item.district
     });
@@ -223,7 +225,7 @@ export default function InventoryList({ inventory }: InventoryListProps) {
                                             <td className="px-6 py-4 text-gray-600 max-w-xs truncate">{item.locationName}</td>
                                             <td className="px-6 py-4"><span className="text-xs">{item.state}, {item.district}</span></td>
                                             <td className="px-6 py-4 text-center">{(item.widthFt || item.width)}' x {(item.heightFt || item.height)}'</td>
-                                            <td className="px-6 py-4 text-right font-bold text-[#002147]">₹{(item.ratePerSqft || item.rate)}</td>
+                                            <td className="px-6 py-4 text-right font-bold text-[#002147]">{formatCurrency((item.ratePerSqft || item.rate) || 0)}</td>
                                             <td className="px-6 py-4 text-center no-modal-trigger"><Button variant="ghost" size="sm" onClick={() => setSelectedItem(item)}><Info className="w-4 h-4" /></Button></td>
                                         </tr>
                                     );
@@ -255,8 +257,20 @@ export default function InventoryList({ inventory }: InventoryListProps) {
                     <div className="p-6 bg-gray-50 max-h-[70vh] overflow-y-auto">
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
                             <div className="space-y-6">
-                                <div className="bg-white rounded-lg border border-gray-200 shadow-sm aspect-video flex items-center justify-center bg-gray-100 text-gray-400">
-                                    <div className="text-center"><Maximize2 className="w-8 h-8 mx-auto mb-2 opacity-50" /><span className="text-sm">No Preview Image</span></div>
+                                <div className="bg-white rounded-lg border border-gray-200 shadow-sm aspect-video flex items-center justify-center bg-gray-100 overflow-hidden relative">
+                                    {selectedItem?.imageUrl ? (
+                                        <Image
+                                            src={selectedItem.imageUrl}
+                                            alt={selectedItem.outletName}
+                                            fill
+                                            className="object-cover"
+                                        />
+                                    ) : (
+                                        <div className="text-center text-gray-400">
+                                            <Maximize2 className="w-8 h-8 mx-auto mb-2 opacity-50" />
+                                            <span className="text-sm">No Preview Image</span>
+                                        </div>
+                                    )}
                                 </div>
                                 <div className="bg-blue-50 rounded-lg p-4 border border-blue-100">
                                     <h3 className="font-semibold text-[#002147] mb-2 flex items-center gap-2"><Info className="w-4 h-4" />Media Highlights</h3>
@@ -279,8 +293,8 @@ export default function InventoryList({ inventory }: InventoryListProps) {
                                 <div className="pt-4 border-t border-gray-200">
                                     <h3 className="text-sm font-bold text-gray-500 uppercase tracking-wider mb-3">Financials</h3>
                                     <div className="space-y-3">
-                                        <div className="flex justify-between items-center text-sm"><span className="text-gray-600">Rate per Sq.Ft</span><span className="font-semibold">₹{selectedItem?.ratePerSqft || selectedItem?.rate || 0}</span></div>
-                                        <div className="flex justify-between items-center text-sm pt-2 border-t border-dashed border-gray-200"><span className="text-gray-900 font-bold">Net Total</span><span className="text-xl font-bold text-[#002147]">₹{selectedItem?.netTotal ? selectedItem.netTotal.toLocaleString() : "N/A"}</span></div>
+                                        <div className="flex justify-between items-center text-sm"><span className="text-gray-600">Rate per Sq.Ft</span><span className="font-semibold">{formatCurrency(selectedItem?.ratePerSqft || selectedItem?.rate || 0)}</span></div>
+                                        <div className="flex justify-between items-center text-sm pt-2 border-t border-dashed border-gray-200"><span className="text-gray-900 font-bold">Net Total</span><span className="text-xl font-bold text-[#002147]">{selectedItem?.netTotal ? formatCurrency(selectedItem.netTotal) : "N/A"}</span></div>
                                     </div>
                                 </div>
 
