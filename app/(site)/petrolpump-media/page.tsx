@@ -8,44 +8,52 @@ export default async function PetrolPumpMediaPage() {
     const today = new Date();
     today.setHours(0, 0, 0, 0); // Start of today
 
-    const inventory = await (db.inventoryHoarding.findMany as any)({
-        where: {
-            isActive: true, // Only show active items
-            // Logic: Not Exists a LeadItem where bookingEndDate >= Today
-            leadItems: {
-                none: {
-                    bookingEndDate: {
-                        not: null, // Ensure not null
-                        gte: today // Current or Future booking (covers Active and Upcoming)
+    let inventory: any[] = []
+    let dbUnavailable = false
+
+    try {
+        inventory = await (db.inventoryHoarding.findMany as any)({
+            where: {
+                isActive: true, // Only show active items
+                // Logic: Not Exists a LeadItem where bookingEndDate >= Today
+                leadItems: {
+                    none: {
+                        bookingEndDate: {
+                            not: null, // Ensure not null
+                            gte: today // Current or Future booking (covers Active and Upcoming)
+                        }
                     }
                 }
+            },
+            select: {
+                id: true,
+                outletName: true,
+                locationName: true,
+                state: true,
+                district: true,
+                widthFt: true,
+                heightFt: true,
+                width: true,
+                height: true,
+                ratePerSqft: true,
+                discountedRate: true,
+                rate: true,
+                areaType: true,
+                totalArea: true,
+                areaSqft: true,
+                printingCharge: true,
+                installationCharge: true,
+                netTotal: true,
+                availabilityStatus: true
+            },
+            orderBy: {
+                createdAt: 'desc'
             }
-        },
-        select: {
-            id: true,
-            outletName: true,
-            locationName: true,
-            state: true,
-            district: true,
-            widthFt: true,
-            heightFt: true,
-            width: true,
-            height: true,
-            ratePerSqft: true,
-            discountedRate: true,
-            rate: true,
-            areaType: true,
-            totalArea: true,
-            areaSqft: true,
-            printingCharge: true,
-            installationCharge: true,
-            netTotal: true,
-            availabilityStatus: true
-        },
-        orderBy: {
-            createdAt: 'desc'
-        }
-    });
+        })
+    } catch (error) {
+        dbUnavailable = true
+        console.error("Public inventory fetch failed:", error)
+    }
 
     // Transform Prisma Decimals to numbers for client component and strip extra fields
     const serializedInventory = inventory.map((item: any) => ({
@@ -78,6 +86,12 @@ export default async function PetrolPumpMediaPage() {
                     <h2 className="text-3xl font-bold text-[#002147] mb-8 text-center uppercase tracking-wide">
                         Available Inventory
                     </h2>
+
+                    {dbUnavailable && (
+                        <div className="mb-6 rounded-lg border border-amber-200 bg-amber-50 p-4 text-sm text-amber-800">
+                            Inventory is temporarily unavailable because the database connection failed. Please refresh in a few minutes.
+                        </div>
+                    )}
 
                     <InventoryList inventory={serializedInventory} />
                 </div>

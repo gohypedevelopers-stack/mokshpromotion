@@ -44,7 +44,7 @@ export async function bulkUpdatePrices(csvText: string) {
     try {
         const rows = csvText.split('\n').filter(r => r.trim());
         let successCount = 0;
-        let errors: string[] = [];
+        const errors: string[] = [];
 
         for (const row of rows) {
             // Expected Format: inventoryCode,discountedRate

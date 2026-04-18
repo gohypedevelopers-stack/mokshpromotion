@@ -1,9 +1,8 @@
 "use client"
 
 import { useState, useMemo } from "react"
-import { Image as ImageIcon, CheckSquare, Square, ShoppingCart, Search } from "lucide-react"
+import { Image as ImageIcon, CheckSquare, Square, Search } from "lucide-react"
 import { useCart } from "@/context/CartContext"
-import { useRouter } from "next/navigation"
 import CartFooter from "@/components/CartFooter"
 
 interface Hoarding {
@@ -27,38 +26,34 @@ interface CityHoardingTableProps {
 }
 
 export default function CityHoardingTable({ hoardings }: CityHoardingTableProps) {
-    const { cartItems, toggleCartItem, isInCart, clearCart } = useCart()
-    const router = useRouter()
+    const { toggleCartItem, isInCart } = useCart()
 
     const [searchQuery, setSearchQuery] = useState("")
     const [selectedImage, setSelectedImage] = useState<string | null>(null)
 
-    // Filter hoardings based on search query
-    // Filter hoardings based on search query - Optimized with useMemo
     const filteredHoardings = useMemo(() => {
         if (!searchQuery) return hoardings
 
         const lowerQuery = searchQuery.toLowerCase().trim()
 
-        return hoardings.filter(h =>
+        return hoardings.filter((h) =>
             (h.name?.toLowerCase() || "").includes(lowerQuery) ||
             h.location.toLowerCase().includes(lowerQuery) ||
-            (h.district?.toLowerCase() || "").includes(lowerQuery)
+            (h.district?.toLowerCase() || "").includes(lowerQuery) ||
+            (h.state?.toLowerCase() || "").includes(lowerQuery) ||
+            (h.city?.toLowerCase() || "").includes(lowerQuery)
         )
     }, [hoardings, searchQuery])
 
     const toggleAll = () => {
         if (filteredHoardings.length === 0) return
 
-        // Check if all displayed (filtered) hoardings are in cart
-        const allSelected = filteredHoardings.every(h => isInCart(h.id))
+        const allSelected = filteredHoardings.every((h) => isInCart(h.id))
 
-        filteredHoardings.forEach(h => {
+        filteredHoardings.forEach((h) => {
             if (allSelected) {
-                // If all selected, verify they are in cart before toggling (removing)
                 if (isInCart(h.id)) toggleCartItem(h)
             } else {
-                // If not all selected, add the missing ones
                 if (!isInCart(h.id)) toggleCartItem(h)
             }
         })
@@ -66,12 +61,11 @@ export default function CityHoardingTable({ hoardings }: CityHoardingTableProps)
 
     const formatCurrency = (val: any) => {
         if (!val) return "-"
-        return `₹${Number(val).toLocaleString('en-IN')}`
+        return `INR ${Number(val).toLocaleString("en-IN")}`
     }
 
     return (
         <div className="space-y-4">
-            {/* Search Input */}
             <div className="bg-white p-4 rounded-lg border border-gray-200 shadow-sm">
                 <div className="relative max-w-md">
                     <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
@@ -79,7 +73,7 @@ export default function CityHoardingTable({ hoardings }: CityHoardingTableProps)
                     </div>
                     <input
                         type="text"
-                        placeholder="Search by Retail Outlet Name, Location, or District..."
+                        placeholder="Search by Outlet Name, Location, District, State, or City..."
                         className="block w-full pl-10 pr-3 py-2 border border-gray-300 rounded-md leading-5 bg-white placeholder-gray-500 focus:outline-none focus:placeholder-gray-400 focus:ring-1 focus:ring-blue-500 focus:border-blue-500 sm:text-sm transition duration-150 ease-in-out"
                         value={searchQuery}
                         onChange={(e) => setSearchQuery(e.target.value)}
@@ -88,7 +82,6 @@ export default function CityHoardingTable({ hoardings }: CityHoardingTableProps)
             </div>
 
             <div className="bg-white shadow-sm border border-gray-200 rounded-lg overflow-hidden relative">
-
                 <div className="overflow-x-auto pb-16">
                     <table className="w-full text-xs text-left text-gray-500">
                         <thead className="text-xs text-gray-700 uppercase bg-gray-100 border-b border-gray-200">
@@ -101,13 +94,13 @@ export default function CityHoardingTable({ hoardings }: CityHoardingTableProps)
                                 <th className="px-3 py-3 text-center">Width<br />(ft)</th>
                                 <th className="px-3 py-3 text-center">Height<br />(ft)</th>
                                 <th className="px-3 py-3 text-center">Total Area<br />(sq ft)</th>
-                                <th className="px-3 py-3 text-right">Rates<br />(₹)</th>
-                                <th className="px-3 py-3 text-right">Printing<br />Charge (₹)</th>
-                                <th className="px-3 py-3 text-right">Net Total<br />(₹)</th>
+                                <th className="px-3 py-3 text-right">Rates<br />(INR)</th>
+                                <th className="px-3 py-3 text-right">Printing<br />Charge (INR)</th>
+                                <th className="px-3 py-3 text-right">Net Total<br />(INR)</th>
                                 <th className="px-3 py-3 text-center">Gallery</th>
                                 <th className="px-3 py-3 text-center">
                                     <button onClick={toggleAll} className="focus:outline-none" title="Select All on Page">
-                                        {filteredHoardings.length > 0 && filteredHoardings.every(h => isInCart(h.id)) ? (
+                                        {filteredHoardings.length > 0 && filteredHoardings.every((h) => isInCart(h.id)) ? (
                                             <CheckSquare className="w-4 h-4 text-blue-600" />
                                         ) : (
                                             <Square className="w-4 h-4 text-gray-400" />
@@ -120,17 +113,14 @@ export default function CityHoardingTable({ hoardings }: CityHoardingTableProps)
                             {filteredHoardings.length === 0 ? (
                                 <tr>
                                     <td colSpan={13} className="px-3 py-8 text-center text-gray-500">
-                                        No campaigns found matching your search.
+                                        No inventory found matching your search.
                                     </td>
                                 </tr>
                             ) : (
                                 filteredHoardings.map((hoarding, index) => {
                                     const isSelected = isInCart(hoarding.id)
                                     return (
-                                        <tr
-                                            key={hoarding.id}
-                                            className={`hover:bg-blue-50 transition-colors ${isSelected ? 'bg-blue-50' : 'bg-white'}`}
-                                        >
+                                        <tr key={hoarding.id} className={`hover:bg-blue-50 transition-colors ${isSelected ? "bg-blue-50" : "bg-white"}`}>
                                             <td className="px-3 py-3 text-center font-medium">{index + 1}</td>
                                             <td className="px-3 py-3 font-medium text-blue-600">{hoarding.name || "N/A"}</td>
                                             <td className="px-3 py-3 text-gray-700 max-w-xs truncate" title={hoarding.location}>
@@ -143,9 +133,7 @@ export default function CityHoardingTable({ hoardings }: CityHoardingTableProps)
                                             <td className="px-3 py-3 text-center font-medium">{hoarding.totalArea ? Number(hoarding.totalArea) : "-"}</td>
                                             <td className="px-3 py-3 text-right whitespace-nowrap">{formatCurrency(hoarding.rate)}</td>
                                             <td className="px-3 py-3 text-right whitespace-nowrap">{formatCurrency(hoarding.printingCharge)}</td>
-                                            <td className="px-3 py-3 text-right font-bold text-gray-900 whitespace-nowrap">
-                                                {formatCurrency(hoarding.netTotal)}
-                                            </td>
+                                            <td className="px-3 py-3 text-right font-bold text-gray-900 whitespace-nowrap">{formatCurrency(hoarding.netTotal)}</td>
                                             <td className="px-3 py-3 text-center">
                                                 <button
                                                     onClick={() => setSelectedImage("/images/petrol-pump-demo.png")}
@@ -156,10 +144,7 @@ export default function CityHoardingTable({ hoardings }: CityHoardingTableProps)
                                                 </button>
                                             </td>
                                             <td className="px-3 py-3 text-center">
-                                                <button
-                                                    onClick={() => toggleCartItem(hoarding)}
-                                                    className="focus:outline-none"
-                                                >
+                                                <button onClick={() => toggleCartItem(hoarding)} className="focus:outline-none">
                                                     {isSelected ? (
                                                         <CheckSquare className="w-5 h-5 text-blue-600" />
                                                     ) : (
@@ -177,14 +162,12 @@ export default function CityHoardingTable({ hoardings }: CityHoardingTableProps)
 
                 <CartFooter />
 
-                {/* Image Modal */}
                 {selectedImage && (
                     <div
                         className="fixed inset-0 z-[100] flex items-center justify-center bg-black/80 backdrop-blur-sm p-4 animate-in fade-in duration-200"
                         onClick={() => setSelectedImage(null)}
                     >
                         <div className="relative max-w-5xl w-full max-h-[90vh] flex items-center justify-center">
-                            {/* Close Button Mobile/Desktop */}
                             <button
                                 onClick={() => setSelectedImage(null)}
                                 className="absolute -top-12 right-0 text-white/70 hover:text-white transition-colors"

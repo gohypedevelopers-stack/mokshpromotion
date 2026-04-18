@@ -69,7 +69,7 @@ export async function POST(
         const lead = await db.lead.findUnique({ where: { id: leadId } })
         if (!lead) return new NextResponse("Lead not found", { status: 404 })
 
-        let updateData: any = { baseTotal: newBaseTotal }
+        const updateData: any = { baseTotal: newBaseTotal }
 
         // Recalculate discount if exists
         if (lead.discountPercentApplied) {
@@ -142,7 +142,7 @@ export async function DELETE(
 
         const lead = await db.lead.findUnique({ where: { id: leadId } })
         if (lead) {
-            let updateData: any = { baseTotal: newBaseTotal }
+            const updateData: any = { baseTotal: newBaseTotal }
 
             if (lead.discountPercentApplied) {
                 const discountAmount = (newBaseTotal * lead.discountPercentApplied) / 100

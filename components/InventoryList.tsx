@@ -2,11 +2,11 @@
 
 import { useState, useMemo } from "react";
 import Image from "next/image";
-import { Dialog, DialogContent, DialogTrigger, DialogFooter, DialogClose } from "@/components/ui/dialog";
+import { Dialog, DialogContent, DialogClose } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Card, CardContent } from "@/components/ui/card";
-import { MapPin, Maximize2, X, Info, ChevronRight, ArrowLeft, Building2, Map } from "lucide-react";
+import { MapPin, Maximize2, X, Info, ChevronRight, ArrowLeft, Building2, Map, Search } from "lucide-react";
 import { useCart } from "@/context/CartContext";
 import { cn, formatCurrency } from "@/lib/utils";
 import { Badge } from "@/components/ui/badge";
@@ -17,16 +17,13 @@ interface InventoryItem {
     locationName: string;
     state: string;
     district: string;
-    // Dimensions
     widthFt: number | null;
     heightFt: number | null;
     width: number | null;
     height: number | null;
-    // Rates
     ratePerSqft: number | null;
     discountedRate: number | null;
     rate: number | null;
-    // Other
     areaType: string | null;
     totalArea: number | null;
     areaSqft: number | null;
@@ -44,69 +41,98 @@ interface InventoryListProps {
 type ViewState = "STATES" | "DISTRICTS" | "ITEMS";
 
 export default function InventoryList({ inventory }: InventoryListProps) {
-    const { toggleCartItem, isInCart, cartItems } = useCart();
+    const { toggleCartItem, isInCart } = useCart();
     const [selectedItem, setSelectedItem] = useState<InventoryItem | null>(null);
+    const [searchQuery, setSearchQuery] = useState("");
 
-    // Filtered inventory based on availability (for public view, though usually parent does this)
-    const availableInventory = useMemo(() => {
-        // If an item is explicitly passed and is BOOKED, we might still show it if it's already in cart, 
-        // but for listing we strictly check AVAILABLE.
-        return inventory;
-    }, [inventory]);
+    const availableInventory = useMemo(() => inventory, [inventory]);
 
-    // Navigation State
     const [viewState, setViewState] = useState<ViewState>("STATES");
     const [selectedState, setSelectedState] = useState<string | null>(null);
     const [selectedDistrict, setSelectedDistrict] = useState<string | null>(null);
+    const normalizedQuery = searchQuery.trim().toLowerCase();
 
-    // Derived Data
     const uniqueStates = useMemo(() => {
-        const states = new Set(availableInventory.map(item => item.state).filter(Boolean));
+        const states = new Set(availableInventory.map((item) => item.state).filter(Boolean));
         return Array.from(states).sort();
     }, [availableInventory]);
+
+    const filteredStates = useMemo(() => {
+        if (!normalizedQuery) return uniqueStates;
+        return uniqueStates.filter((state) => state.toLowerCase().includes(normalizedQuery));
+    }, [uniqueStates, normalizedQuery]);
 
     const uniqueDistricts = useMemo(() => {
         if (!selectedState) return [];
         const districts = new Set(
             availableInventory
-                .filter(item => item.state === selectedState)
-                .map(item => item.district)
+                .filter((item) => item.state === selectedState)
+                .map((item) => item.district)
                 .filter(Boolean)
         );
         return Array.from(districts).sort();
     }, [availableInventory, selectedState]);
 
+    const filteredDistricts = useMemo(() => {
+        if (!normalizedQuery) return uniqueDistricts;
+        return uniqueDistricts.filter((district) => district.toLowerCase().includes(normalizedQuery));
+    }, [uniqueDistricts, normalizedQuery]);
+
     const filteredInventory = useMemo(() => {
-        return availableInventory.filter(item =>
-            (!selectedState || item.state === selectedState) &&
-            (!selectedDistrict || item.district === selectedDistrict)
+        const scopedItems = availableInventory.filter(
+            (item) => (!selectedState || item.state === selectedState) && (!selectedDistrict || item.district === selectedDistrict)
         );
-    }, [availableInventory, selectedState, selectedDistrict]);
 
-    // Counts for badges
-    const getStateCount = (state: string) => availableInventory.filter(i => i.state === state).length;
+        if (!normalizedQuery) return scopedItems;
+
+        return scopedItems.filter((item) => {
+            const outlet = (item.outletName || "").toLowerCase();
+            const location = (item.locationName || "").toLowerCase();
+            const state = (item.state || "").toLowerCase();
+            const district = (item.district || "").toLowerCase();
+
+            return (
+                outlet.includes(normalizedQuery) ||
+                location.includes(normalizedQuery) ||
+                state.includes(normalizedQuery) ||
+                district.includes(normalizedQuery)
+            );
+        });
+    }, [availableInventory, selectedState, selectedDistrict, normalizedQuery]);
+
+    const searchPlaceholder =
+        viewState === "STATES"
+            ? "Search state..."
+            : viewState === "DISTRICTS"
+                ? `Search district in ${selectedState || "selected state"}...`
+                : "Search outlet, location, district, or state...";
+
+    const getStateCount = (state: string) => availableInventory.filter((i) => i.state === state).length;
     const getDistrictCount = (state: string, district: string) =>
-        availableInventory.filter(i => i.state === state && i.district === district).length;
+        availableInventory.filter((i) => i.state === state && i.district === district).length;
 
-    // ... (rest of handlers same)
     const handleStateSelect = (state: string) => {
         setSelectedState(state);
         setViewState("DISTRICTS");
         setSelectedDistrict(null);
+        setSearchQuery("");
     };
 
     const handleDistrictSelect = (district: string) => {
         setSelectedDistrict(district);
         setViewState("ITEMS");
+        setSearchQuery("");
     };
 
     const handleBack = () => {
         if (viewState === "ITEMS") {
             setViewState("DISTRICTS");
             setSelectedDistrict(null);
+            setSearchQuery("");
         } else if (viewState === "DISTRICTS") {
             setViewState("STATES");
             setSelectedState(null);
+            setSearchQuery("");
         }
     };
 
@@ -114,6 +140,7 @@ export default function InventoryList({ inventory }: InventoryListProps) {
         setViewState("STATES");
         setSelectedState(null);
         setSelectedDistrict(null);
+        setSearchQuery("");
     };
 
     const getCartItem = (item: InventoryItem) => ({
@@ -130,32 +157,74 @@ export default function InventoryList({ inventory }: InventoryListProps) {
         netTotal: item.netTotal,
         imageUrl: item.imageUrl,
         state: item.state,
-        city: item.district
+        city: item.district,
     });
 
     const handleRowClick = (item: InventoryItem, event: React.MouseEvent) => {
-        if ((event.target as HTMLElement).closest('.no-modal-trigger')) return;
+        if ((event.target as HTMLElement).closest(".no-modal-trigger")) return;
         setSelectedItem(item);
     };
 
     return (
         <div className="space-y-6">
-            {/* Breadcrumb ... (omitted same) */}
             <div className="flex items-center justify-between text-sm mb-4">
                 <div className="flex items-center gap-2 text-gray-500">
-                    <button onClick={handleReset} className={cn("hover:text-[#002147]", viewState === "STATES" && "font-bold text-[#002147]")}>All States</button>
-                    {selectedState && <><ChevronRight className="w-4 h-4" /><button onClick={() => { setViewState("DISTRICTS"); setSelectedDistrict(null); }} className={cn("hover:text-[#002147]", viewState === "DISTRICTS" && "font-bold text-[#002147]")}>{selectedState}</button></>}
-                    {selectedDistrict && <><ChevronRight className="w-4 h-4" /><span className="font-bold text-[#002147]">{selectedDistrict}</span></>}
+                    <button onClick={handleReset} className={cn("hover:text-[#002147]", viewState === "STATES" && "font-bold text-[#002147]")}>
+                        All States
+                    </button>
+                    {selectedState && (
+                        <>
+                            <ChevronRight className="w-4 h-4" />
+                            <button
+                                onClick={() => {
+                                    setViewState("DISTRICTS");
+                                    setSelectedDistrict(null);
+                                    setSearchQuery("");
+                                }}
+                                className={cn("hover:text-[#002147]", viewState === "DISTRICTS" && "font-bold text-[#002147]")}
+                            >
+                                {selectedState}
+                            </button>
+                        </>
+                    )}
+                    {selectedDistrict && (
+                        <>
+                            <ChevronRight className="w-4 h-4" />
+                            <span className="font-bold text-[#002147]">{selectedDistrict}</span>
+                        </>
+                    )}
                 </div>
-                {viewState !== "STATES" && <Button variant="ghost" size="sm" onClick={handleBack} className="text-gray-600"><ArrowLeft className="w-4 h-4 mr-1" />Back</Button>}
+                {viewState !== "STATES" && (
+                    <Button variant="ghost" size="sm" onClick={handleBack} className="text-gray-600">
+                        <ArrowLeft className="w-4 h-4 mr-1" />
+                        Back
+                    </Button>
+                )}
+            </div>
+
+            <div className="bg-white p-4 rounded-lg border border-gray-200 shadow-sm">
+                <div className="relative max-w-xl">
+                    <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                        <Search className="h-5 w-5 text-gray-400" />
+                    </div>
+                    <input
+                        type="text"
+                        placeholder={searchPlaceholder}
+                        className="block w-full pl-10 pr-3 py-2 border border-gray-300 rounded-md leading-5 bg-white placeholder-gray-500 focus:outline-none focus:placeholder-gray-400 focus:ring-1 focus:ring-[#002147] focus:border-[#002147] sm:text-sm transition duration-150 ease-in-out"
+                        value={searchQuery}
+                        onChange={(e) => setSearchQuery(e.target.value)}
+                    />
+                </div>
             </div>
 
             {viewState === "STATES" && (
                 <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6">
-                    {uniqueStates.map((state) => (
+                    {filteredStates.map((state) => (
                         <Card key={state} onClick={() => handleStateSelect(state)} className="cursor-pointer hover:shadow-lg transition-all group bg-white">
                             <CardContent className="p-6 flex flex-col items-center text-center space-y-4">
-                                <div className="w-16 h-16 rounded-full bg-blue-50 flex items-center justify-center group-hover:bg-[#002147] transition-colors"><Map className="w-8 h-8 text-[#002147] group-hover:text-white" /></div>
+                                <div className="w-16 h-16 rounded-full bg-blue-50 flex items-center justify-center group-hover:bg-[#002147] transition-colors">
+                                    <Map className="w-8 h-8 text-[#002147] group-hover:text-white" />
+                                </div>
                                 <div className="space-y-1">
                                     <h3 className="font-bold text-lg text-gray-900">{state}</h3>
                                     <p className="text-sm text-gray-500">{getStateCount(state)} Outlets</p>
@@ -163,6 +232,11 @@ export default function InventoryList({ inventory }: InventoryListProps) {
                             </CardContent>
                         </Card>
                     ))}
+                    {filteredStates.length === 0 && (
+                        <div className="col-span-full rounded-lg border border-dashed border-gray-300 bg-gray-50 py-8 text-center text-sm text-gray-500">
+                            No states found for "{searchQuery}".
+                        </div>
+                    )}
                 </div>
             )}
 
@@ -170,10 +244,12 @@ export default function InventoryList({ inventory }: InventoryListProps) {
                 <div>
                     <h2 className="text-2xl font-bold text-[#002147] mb-6">Districts in {selectedState}</h2>
                     <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6">
-                        {uniqueDistricts.map((district) => (
+                        {filteredDistricts.map((district) => (
                             <Card key={district} onClick={() => handleDistrictSelect(district)} className="cursor-pointer hover:shadow-lg transition-all group bg-white">
                                 <CardContent className="p-6 flex flex-col items-center text-center space-y-4">
-                                    <div className="w-12 h-12 rounded-full bg-orange-50 flex items-center justify-center group-hover:bg-[#FF6B00] transition-colors"><Building2 className="w-6 h-6 text-[#FF6B00] group-hover:text-white" /></div>
+                                    <div className="w-12 h-12 rounded-full bg-orange-50 flex items-center justify-center group-hover:bg-[#FF6B00] transition-colors">
+                                        <Building2 className="w-6 h-6 text-[#FF6B00] group-hover:text-white" />
+                                    </div>
                                     <div className="space-y-1">
                                         <h3 className="font-bold text-lg text-gray-900">{district}</h3>
                                         <p className="text-sm text-gray-500">{getDistrictCount(selectedState!, district)} Outlets</p>
@@ -181,6 +257,11 @@ export default function InventoryList({ inventory }: InventoryListProps) {
                                 </CardContent>
                             </Card>
                         ))}
+                        {filteredDistricts.length === 0 && (
+                            <div className="col-span-full rounded-lg border border-dashed border-gray-300 bg-gray-50 py-8 text-center text-sm text-gray-500">
+                                No districts found for "{searchQuery}".
+                            </div>
+                        )}
                     </div>
                 </div>
             )}
@@ -210,26 +291,45 @@ export default function InventoryList({ inventory }: InventoryListProps) {
                                 </tr>
                             </thead>
                             <tbody className="divide-y divide-gray-100">
-                                {filteredInventory.map((item) => {
-                                    const selected = isInCart(item.id);
-                                    const isBooked = item.availabilityStatus === "BOOKED";
-                                    return (
-                                        <tr key={item.id} onClick={(e) => handleRowClick(item, e)} className={cn("hover:bg-blue-50/80 transition-colors cursor-pointer group", selected && "bg-blue-50", isBooked && "opacity-60 bg-gray-50")}>
-                                            <td className="px-6 py-4 text-center no-modal-trigger">
-                                                {!isBooked && (
-                                                    <Checkbox checked={selected} onCheckedChange={() => toggleCartItem(getCartItem(item))} />
-                                                )}
-                                                {isBooked && <X className="w-4 h-4 text-red-500 mx-auto" />}
-                                            </td>
-                                            <td className="px-6 py-4 font-semibold text-gray-800">{item.outletName}</td>
-                                            <td className="px-6 py-4 text-gray-600 max-w-xs truncate">{item.locationName}</td>
-                                            <td className="px-6 py-4"><span className="text-xs">{item.state}, {item.district}</span></td>
-                                            <td className="px-6 py-4 text-center">{(item.widthFt || item.width)}' x {(item.heightFt || item.height)}'</td>
-                                            <td className="px-6 py-4 text-right font-bold text-[#002147]">{formatCurrency((item.ratePerSqft || item.rate) || 0)}</td>
-                                            <td className="px-6 py-4 text-center no-modal-trigger"><Button variant="ghost" size="sm" onClick={() => setSelectedItem(item)}><Info className="w-4 h-4" /></Button></td>
-                                        </tr>
-                                    );
-                                })}
+                                {filteredInventory.length === 0 ? (
+                                    <tr>
+                                        <td colSpan={7} className="px-6 py-10 text-center text-gray-500">
+                                            No inventory found for "{searchQuery}".
+                                        </td>
+                                    </tr>
+                                ) : (
+                                    filteredInventory.map((item) => {
+                                        const selected = isInCart(item.id);
+                                        const isBooked = item.availabilityStatus === "BOOKED";
+
+                                        return (
+                                            <tr
+                                                key={item.id}
+                                                onClick={(e) => handleRowClick(item, e)}
+                                                className={cn("hover:bg-blue-50/80 transition-colors cursor-pointer group", selected && "bg-blue-50", isBooked && "opacity-60 bg-gray-50")}
+                                            >
+                                                <td className="px-6 py-4 text-center no-modal-trigger">
+                                                    {!isBooked && <Checkbox checked={selected} onCheckedChange={() => toggleCartItem(getCartItem(item))} />}
+                                                    {isBooked && <X className="w-4 h-4 text-red-500 mx-auto" />}
+                                                </td>
+                                                <td className="px-6 py-4 font-semibold text-gray-800">{item.outletName}</td>
+                                                <td className="px-6 py-4 text-gray-600 max-w-xs truncate">{item.locationName}</td>
+                                                <td className="px-6 py-4">
+                                                    <span className="text-xs">{item.state}, {item.district}</span>
+                                                </td>
+                                                <td className="px-6 py-4 text-center">
+                                                    {(item.widthFt || item.width)}' x {(item.heightFt || item.height)}'
+                                                </td>
+                                                <td className="px-6 py-4 text-right font-bold text-[#002147]">{formatCurrency((item.ratePerSqft || item.rate) || 0)}</td>
+                                                <td className="px-6 py-4 text-center no-modal-trigger">
+                                                    <Button variant="ghost" size="sm" onClick={() => setSelectedItem(item)}>
+                                                        <Info className="w-4 h-4" />
+                                                    </Button>
+                                                </td>
+                                            </tr>
+                                        );
+                                    })
+                                )}
                             </tbody>
                         </table>
                     </div>
@@ -251,7 +351,9 @@ export default function InventoryList({ inventory }: InventoryListProps) {
                                 <span>{selectedItem?.locationName}, {selectedItem?.district}, {selectedItem?.state}</span>
                             </div>
                         </div>
-                        <DialogClose className="text-white/70 hover:text-white"><X className="w-6 h-6" /></DialogClose>
+                        <DialogClose className="text-white/70 hover:text-white">
+                            <X className="w-6 h-6" />
+                        </DialogClose>
                     </div>
 
                     <div className="p-6 bg-gray-50 max-h-[70vh] overflow-y-auto">
@@ -259,12 +361,7 @@ export default function InventoryList({ inventory }: InventoryListProps) {
                             <div className="space-y-6">
                                 <div className="bg-white rounded-lg border border-gray-200 shadow-sm aspect-video flex items-center justify-center bg-gray-100 overflow-hidden relative">
                                     {selectedItem?.imageUrl ? (
-                                        <Image
-                                            src={selectedItem.imageUrl}
-                                            alt={selectedItem.outletName}
-                                            fill
-                                            className="object-cover"
-                                        />
+                                        <Image src={selectedItem.imageUrl} alt={selectedItem.outletName} fill className="object-cover" />
                                     ) : (
                                         <div className="text-center text-gray-400">
                                             <Maximize2 className="w-8 h-8 mx-auto mb-2 opacity-50" />
@@ -273,7 +370,10 @@ export default function InventoryList({ inventory }: InventoryListProps) {
                                     )}
                                 </div>
                                 <div className="bg-blue-50 rounded-lg p-4 border border-blue-100">
-                                    <h3 className="font-semibold text-[#002147] mb-2 flex items-center gap-2"><Info className="w-4 h-4" />Media Highlights</h3>
+                                    <h3 className="font-semibold text-[#002147] mb-2 flex items-center gap-2">
+                                        <Info className="w-4 h-4" />
+                                        Media Highlights
+                                    </h3>
                                     <ul className="text-sm text-gray-700 space-y-1 ml-5 list-disc">
                                         <li>High visibility location</li>
                                         <li>24/7 Illumination available</li>
@@ -283,24 +383,39 @@ export default function InventoryList({ inventory }: InventoryListProps) {
                             </div>
 
                             <div className="space-y-6">
-                                <div><h3 className="text-sm font-bold text-gray-500 uppercase tracking-wider mb-3">Specifications</h3>
+                                <div>
+                                    <h3 className="text-sm font-bold text-gray-500 uppercase tracking-wider mb-3">Specifications</h3>
                                     <div className="grid grid-cols-2 gap-4">
-                                        <div className="bg-white p-3 rounded border border-gray-200 shadow-sm"><div className="text-xs text-gray-500 mb-1">Dimensions (WxH)</div><div className="font-bold text-gray-800">{(selectedItem?.widthFt || selectedItem?.width) || 0}' x {(selectedItem?.heightFt || selectedItem?.height) || 0}'</div></div>
-                                        <div className="bg-white p-3 rounded border border-gray-200 shadow-sm"><div className="text-xs text-gray-500 mb-1">Total Area</div><div className="font-bold text-gray-800">{(selectedItem?.areaSqft || selectedItem?.totalArea) || 0} Sq.Ft.</div></div>
+                                        <div className="bg-white p-3 rounded border border-gray-200 shadow-sm">
+                                            <div className="text-xs text-gray-500 mb-1">Dimensions (WxH)</div>
+                                            <div className="font-bold text-gray-800">
+                                                {(selectedItem?.widthFt || selectedItem?.width) || 0}' x {(selectedItem?.heightFt || selectedItem?.height) || 0}'
+                                            </div>
+                                        </div>
+                                        <div className="bg-white p-3 rounded border border-gray-200 shadow-sm">
+                                            <div className="text-xs text-gray-500 mb-1">Total Area</div>
+                                            <div className="font-bold text-gray-800">{(selectedItem?.areaSqft || selectedItem?.totalArea) || 0} Sq.Ft.</div>
+                                        </div>
                                     </div>
                                 </div>
 
                                 <div className="pt-4 border-t border-gray-200">
                                     <h3 className="text-sm font-bold text-gray-500 uppercase tracking-wider mb-3">Financials</h3>
                                     <div className="space-y-3">
-                                        <div className="flex justify-between items-center text-sm"><span className="text-gray-600">Rate per Sq.Ft</span><span className="font-semibold">{formatCurrency(selectedItem?.ratePerSqft || selectedItem?.rate || 0)}</span></div>
-                                        <div className="flex justify-between items-center text-sm pt-2 border-t border-dashed border-gray-200"><span className="text-gray-900 font-bold">Net Total</span><span className="text-xl font-bold text-[#002147]">{selectedItem?.netTotal ? formatCurrency(selectedItem.netTotal) : "N/A"}</span></div>
+                                        <div className="flex justify-between items-center text-sm">
+                                            <span className="text-gray-600">Rate per Sq.Ft</span>
+                                            <span className="font-semibold">{formatCurrency(selectedItem?.ratePerSqft || selectedItem?.rate || 0)}</span>
+                                        </div>
+                                        <div className="flex justify-between items-center text-sm pt-2 border-t border-dashed border-gray-200">
+                                            <span className="text-gray-900 font-bold">Net Total</span>
+                                            <span className="text-xl font-bold text-[#002147]">{selectedItem?.netTotal ? formatCurrency(selectedItem.netTotal) : "N/A"}</span>
+                                        </div>
                                     </div>
                                 </div>
 
                                 {selectedItem?.availabilityStatus === "BOOKED" && (
                                     <div className="p-4 bg-red-50 border border-red-100 rounded-lg text-red-700 text-sm font-medium">
-                                        ⚠️ This outlet is currently booked and unavailable for new campaigns. Try similar locations in this district.
+                                        Warning: This outlet is currently booked and unavailable for new campaigns. Try similar locations in this district.
                                     </div>
                                 )}
                             </div>
@@ -308,7 +423,9 @@ export default function InventoryList({ inventory }: InventoryListProps) {
                     </div>
 
                     <div className="p-4 bg-white border-t border-gray-200 flex justify-end gap-3">
-                        <Button variant="outline" onClick={() => setSelectedItem(null)}>Close</Button>
+                        <Button variant="outline" onClick={() => setSelectedItem(null)}>
+                            Close
+                        </Button>
                         {selectedItem && (
                             <Button
                                 disabled={selectedItem.availabilityStatus === "BOOKED"}
@@ -325,7 +442,11 @@ export default function InventoryList({ inventory }: InventoryListProps) {
                                         : "bg-[#002147] text-white hover:bg-[#003366]"
                                 )}
                             >
-                                {selectedItem.availabilityStatus === "BOOKED" ? "Already Booked" : (isInCart(selectedItem.id) ? "Remove from List" : "Select Location")}
+                                {selectedItem.availabilityStatus === "BOOKED"
+                                    ? "Already Booked"
+                                    : isInCart(selectedItem.id)
+                                        ? "Remove from List"
+                                        : "Select Location"}
                             </Button>
                         )}
                     </div>

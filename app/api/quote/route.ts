@@ -1,32 +1,145 @@
+import { Prisma } from "@prisma/client"
 import { db } from "@/lib/db"
 import { sendEmail } from "@/lib/email"
 import { NextResponse } from "next/server"
 
+type QuoteItemInput = {
+    id?: unknown
+    name?: unknown
+    location?: unknown
+    city?: unknown
+    rate?: unknown
+    printingCharge?: unknown
+    netTotal?: unknown
+}
+
+type NormalizedQuoteItem = {
+    id: number
+    name: string
+    location: string
+    city: string
+    rate: number
+    printingCharge: number
+    netTotal: number
+}
+
+const toText = (value: unknown) => (typeof value === "string" ? value.trim() : "")
+
+const toPositiveInt = (value: unknown): number | null => {
+    const num = Number(value)
+    if (!Number.isInteger(num) || num <= 0) return null
+    return num
+}
+
+const toMoney = (value: unknown): number => {
+    const num = Number(value)
+    if (!Number.isFinite(num) || num < 0) return 0
+    return num
+}
+
+const isEmail = (value: string) => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value)
+const isPhone = (value: string) => /^[0-9+\-() ]{7,20}$/.test(value)
+
+const getEmailWarningMessage = (
+    target: "admin" | "client",
+    result: { code?: string; reason?: "AUTH_FAILED" | "SEND_FAILED" }
+) => {
+    if (result.reason === "AUTH_FAILED" || result.code === "EAUTH") {
+        // Do not expose SMTP auth configuration issues to end users.
+        return null
+    }
+    return target === "admin"
+        ? "Admin notification email failed."
+        : "Client confirmation email failed."
+}
+
 export async function POST(req: Request) {
     try {
+        const body = (await req.json()) as Record<string, unknown>
 
-        const body = await req.json()
-        const { name, email: rawEmail, phone, city, items, serviceInterest } = body
-        const email = rawEmail?.toLowerCase()
+        const name = toText(body.name)
+        const email = toText(body.email).toLowerCase()
+        const phone = toText(body.phone)
+        const city = toText(body.city)
+        const serviceInterest = toText(body.serviceInterest) || null
 
-        // Calculate Totals
-        let baseTotal = 0
-        const campaignItemsCreate = (items || []).map((item: any) => {
-            const netTotal = Number(item.netTotal) || 0 // Assuming netTotal is sent from frontend cart item
-            baseTotal += netTotal
+        if (!name || !email || !phone || !city) {
+            return NextResponse.json(
+                { success: false, error: "Please fill all required fields." },
+                { status: 400 }
+            )
+        }
 
-            return {
-                inventoryHoardingId: Number(item.id),
-                rate: Number(item.rate) || 0, // Fallbacks if not present
-                printingCharge: Number(item.printingCharge) || 0,
-                total: netTotal
-            }
-        })
+        if (!isEmail(email)) {
+            return NextResponse.json(
+                { success: false, error: "Please enter a valid email address." },
+                { status: 400 }
+            )
+        }
 
-        // 1. Create Lead in CRM with Campaign Items
-        const noteText = serviceInterest
+        if (!isPhone(phone)) {
+            return NextResponse.json(
+                { success: false, error: "Please enter a valid phone number." },
+                { status: 400 }
+            )
+        }
+
+        const rawItems = Array.isArray(body.items) ? (body.items as QuoteItemInput[]) : []
+        const normalizedItems = rawItems
+            .map((item) => {
+                const id = toPositiveInt(item?.id)
+                if (!id) return null
+
+                return {
+                    id,
+                    name: toText(item?.name) || "Hoarding",
+                    location: toText(item?.location) || "N/A",
+                    city: toText(item?.city) || city,
+                    rate: toMoney(item?.rate),
+                    printingCharge: toMoney(item?.printingCharge),
+                    netTotal: toMoney(item?.netTotal),
+                } satisfies NormalizedQuoteItem
+            })
+            .filter((item): item is NormalizedQuoteItem => item !== null)
+
+        if (!serviceInterest && normalizedItems.length === 0) {
+            return NextResponse.json(
+                { success: false, error: "No valid locations found in cart. Please reselect your inventory." },
+                { status: 400 }
+            )
+        }
+
+        let validItems: NormalizedQuoteItem[] = []
+        let skippedItems = 0
+
+        if (normalizedItems.length > 0) {
+            const existingInventory = await db.inventoryHoarding.findMany({
+                where: { id: { in: normalizedItems.map((item) => item.id) } },
+                select: { id: true },
+            })
+
+            const validIdSet = new Set(existingInventory.map((row) => row.id))
+            validItems = normalizedItems.filter((item) => validIdSet.has(item.id))
+            skippedItems = normalizedItems.length - validItems.length
+        }
+
+        if (!serviceInterest && validItems.length === 0) {
+            return NextResponse.json(
+                { success: false, error: "Selected locations are no longer available. Please refresh and try again." },
+                { status: 400 }
+            )
+        }
+
+        const baseTotal = validItems.reduce((sum, item) => sum + item.netTotal, 0)
+        const itemCount = validItems.length
+
+        let noteText = serviceInterest
             ? `Interested in Service: ${serviceInterest}. City: ${city}.`
-            : `City: ${city}. Interested in ${items?.length || 0} locations.`
+            : `City: ${city}. Interested in ${itemCount} locations.`
+
+        if (skippedItems > 0) {
+            noteText += ` Skipped ${skippedItems} invalid/removed item(s).`
+        }
 
         const lead = await db.lead.create({
             data: {
@@ -36,25 +149,34 @@ export async function POST(req: Request) {
                 source: serviceInterest ? "WEBSITE_SERVICE_INQUIRY" : "WEBSITE_CART_QUOTE",
                 status: "NEW",
                 notes: noteText,
-
-                // Pricing Info
-                baseTotal: baseTotal,
-                finalTotal: baseTotal, // No discount yet
-
-                // Create related campaign items only if there are items
-                campaignItems: campaignItemsCreate.length > 0 ? {
-                    create: campaignItemsCreate
-                } : undefined
-            }
+                baseTotal,
+                finalTotal: baseTotal,
+                campaignItems:
+                    validItems.length > 0
+                        ? {
+                              create: validItems.map((item) => ({
+                                  inventoryHoardingId: item.id,
+                                  rate: item.rate,
+                                  printingCharge: item.printingCharge,
+                                  total: item.netTotal,
+                              })),
+                          }
+                        : undefined,
+            },
         })
 
-        // 2. Send Email to Admin
-        const itemsHtml = items && items.length > 0
-            ? `<h3>Locations Requested (${items.length}):</h3>
-               <ul>
-                   ${items.map((i: any) => `<li>${i.name || 'Hoarding'} - ${i.location} (${i.city}) - ₹${i.netTotal}</li>`).join('')}
-               </ul>`
-            : `<p><strong>Service Interest:</strong> ${serviceInterest}</p>`
+        const itemsHtml =
+            validItems.length > 0
+                ? `<h3>Locations Requested (${validItems.length}):</h3>
+                   <ul>
+                       ${validItems
+                           .map(
+                               (item) =>
+                                   `<li>${item.name} - ${item.location} (${item.city}) - INR ${item.netTotal.toLocaleString("en-IN")}</li>`
+                           )
+                           .join("")}
+                   </ul>`
+                : `<p><strong>Service Interest:</strong> ${serviceInterest}</p>`
 
         const adminHtml = `
             <h2>New Quote Request</h2>
@@ -62,22 +184,27 @@ export async function POST(req: Request) {
             <p><strong>Phone:</strong> ${phone}</p>
             <p><strong>Email:</strong> ${email}</p>
             <p><strong>City:</strong> ${city}</p>
-            ${baseTotal > 0 ? `<p><strong>Estimated value:</strong> ₹${baseTotal.toLocaleString('en-IN')}</p>` : ''}
+            ${baseTotal > 0 ? `<p><strong>Estimated value:</strong> INR ${baseTotal.toLocaleString("en-IN")}</p>` : ""}
             ${itemsHtml}
         `
-        // Send to a default admin email or the SMTP_USER
-        await sendEmail({
+
+        const emailWarnings: string[] = []
+
+        const adminEmailResult = await sendEmail({
             to: process.env.SMTP_USER || "admin@example.com",
             subject: `New Quote Request from ${name}`,
-            html: adminHtml
+            html: adminHtml,
         })
+        if (!adminEmailResult.success) {
+            const warning = getEmailWarningMessage("admin", adminEmailResult)
+            if (warning) emailWarnings.push(warning)
+        }
 
-        // 3. Send Confirmation to Client
         const clientMessage = serviceInterest
             ? `<p>We have received your inquiry for <strong>${serviceInterest}</strong> services.</p>`
-            : `<p>We have received your request for <strong>${items?.length} locations</strong>.</p>`
+            : `<p>We have received your request for <strong>${validItems.length} locations</strong>.</p>`
 
-        await sendEmail({
+        const clientEmailResult = await sendEmail({
             to: email,
             subject: "We received your quote request",
             html: `
@@ -87,12 +214,43 @@ export async function POST(req: Request) {
                 <p>Our sales team will review your requirements and get back to you shortly with a formal quote.</p>
                 <br/>
                 <p>Best Regards,<br/>Moksh Promotion Team</p>
-            `
+            `,
         })
+        if (!clientEmailResult.success) {
+            const warning = getEmailWarningMessage("client", clientEmailResult)
+            if (warning) emailWarnings.push(warning)
+        }
 
-        return NextResponse.json({ success: true, leadId: lead.id })
+        const uniqueWarnings = Array.from(new Set(emailWarnings))
+
+        return NextResponse.json({
+            success: true,
+            leadId: lead.id,
+            skippedItems,
+            warning: uniqueWarnings.length > 0 ? uniqueWarnings.join(" ") : undefined,
+        })
     } catch (error) {
         console.error("QUOTE_API_ERROR", error)
-        return NextResponse.json({ success: false, error: "Failed to process quote" }, { status: 500 })
+
+        if (error instanceof Prisma.PrismaClientInitializationError) {
+            return NextResponse.json(
+                { success: false, error: "Database is temporarily unavailable. Please try again in a few minutes." },
+                { status: 503 }
+            )
+        }
+
+        if (error instanceof Prisma.PrismaClientKnownRequestError) {
+            if (error.code === "P2003") {
+                return NextResponse.json(
+                    { success: false, error: "One or more selected locations are invalid. Please refresh and retry." },
+                    { status: 400 }
+                )
+            }
+        }
+
+        return NextResponse.json(
+            { success: false, error: "Failed to process quote request. Please try again." },
+            { status: 500 }
+        )
     }
 }

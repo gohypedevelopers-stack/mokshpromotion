@@ -1,50 +1,108 @@
 import { db } from "@/lib/db"
-import { notFound } from "next/navigation"
 import CityHoardingTable from "@/components/CityHoardingTable"
 import Link from "next/link"
 import { ArrowLeft } from "lucide-react"
 
+type NullableNumberLike = number | string | null | undefined
 
+interface RawCityHoarding {
+    id: number
+    outletName: string | null
+    name: string | null
+    locationName: string | null
+    location: string | null
+    state: string | null
+    district: string | null
+    city: string | null
+    hoardingsCount: number | null
+    width: NullableNumberLike
+    widthFt: NullableNumberLike
+    height: NullableNumberLike
+    heightFt: NullableNumberLike
+    totalArea: NullableNumberLike
+    areaSqft: NullableNumberLike
+    rate: NullableNumberLike
+    ratePerSqft: NullableNumberLike
+    printingCharge: NullableNumberLike
+    netTotal: NullableNumberLike
+    computedNetTotal: NullableNumberLike
+}
+
+const toNumber = (value: NullableNumberLike): number | null => {
+    if (value === null || value === undefined || value === "") return null
+    const num = Number(value)
+    return Number.isNaN(num) ? null : num
+}
 
 export default async function CityMediaPage({ params }: { params: { city: string } }) {
     const cityName = decodeURIComponent(params.city)
+    const today = new Date()
+    today.setHours(0, 0, 0, 0)
 
-    // ... (data fetching)
-    const cityHoardings = await db.inventoryHoarding.findMany({
-        where: {
-            OR: [
-                { district: cityName },
-                { district: cityName.toUpperCase() },
-                { district: cityName.toLowerCase() },
-                { city: cityName },
-                { city: cityName.toUpperCase() },
-                { city: cityName.toLowerCase() }
-            ]
-        },
-        select: {
-            id: true,
-            outletName: true,
-            name: true,
-            locationName: true,
-            location: true,
-            state: true, // Fix missing field
-            district: true,
-            city: true,
-            hoardingsCount: true,
-            width: true,
-            widthFt: true,
-            height: true,
-            heightFt: true,
-            totalArea: true,
-            areaSqft: true,
-            rate: true,
-            ratePerSqft: true,
-            printingCharge: true,
-            netTotal: true,
-            computedNetTotal: true
-        },
-        orderBy: { location: 'asc' }
-    })
+    let cityHoardings: RawCityHoarding[] = []
+    let dbUnavailable = false
+
+    try {
+        cityHoardings = (await db.inventoryHoarding.findMany({
+            where: {
+                isActive: true,
+                leadItems: {
+                    none: {
+                        bookingEndDate: {
+                            not: null,
+                            gte: today,
+                        },
+                    },
+                },
+                OR: [
+                    { district: { equals: cityName, mode: "insensitive" } },
+                    { city: { equals: cityName, mode: "insensitive" } },
+                ],
+            },
+            select: {
+                id: true,
+                outletName: true,
+                name: true,
+                locationName: true,
+                location: true,
+                state: true,
+                district: true,
+                city: true,
+                hoardingsCount: true,
+                width: true,
+                widthFt: true,
+                height: true,
+                heightFt: true,
+                totalArea: true,
+                areaSqft: true,
+                rate: true,
+                ratePerSqft: true,
+                printingCharge: true,
+                netTotal: true,
+                computedNetTotal: true,
+            },
+            orderBy: { location: "asc" },
+        })) as RawCityHoarding[]
+    } catch (error) {
+        dbUnavailable = true
+        console.error(`City inventory fetch failed (${cityName}):`, error)
+    }
+
+    if (dbUnavailable) {
+        return (
+            <div className="min-h-screen bg-gray-50 pt-24 px-4">
+                <div className="max-w-7xl mx-auto">
+                    <Link href="/petrolpump-media" className="inline-flex items-center text-blue-600 hover:text-blue-800 mb-6">
+                        <ArrowLeft className="w-4 h-4 mr-2" />
+                        Back to All Locations
+                    </Link>
+                    <div className="rounded-lg border border-amber-200 bg-amber-50 p-5 text-amber-900">
+                        Unable to load inventory for {cityName} right now because the database is unreachable. Please try again shortly.
+                    </div>
+                </div>
+            </div>
+        )
+    }
 
     if (cityHoardings.length === 0) {
         return (
@@ -63,6 +121,30 @@ export default async function CityMediaPage({ params }: { params: { city: string
         )
     }
 
+    const normalizedHoardings = cityHoardings.map((h) => {
+        const row = h as unknown as RawCityHoarding
+        return {
+            ...row,
+            location: row.location ?? row.locationName ?? "",
+            city: row.city ?? "",
+            state: row.state ?? "",
+            district: row.district ?? "",
+            name: row.name ?? row.outletName ?? "N/A",
+            hoardingsCount: row.hoardingsCount ?? 1,
+            width: toNumber(row.width),
+            widthFt: toNumber(row.widthFt),
+            height: toNumber(row.height),
+            heightFt: toNumber(row.heightFt),
+            totalArea: toNumber(row.totalArea),
+            areaSqft: toNumber(row.areaSqft),
+            rate: toNumber(row.rate),
+            ratePerSqft: toNumber(row.ratePerSqft),
+            printingCharge: toNumber(row.printingCharge),
+            netTotal: toNumber(row.netTotal),
+            computedNetTotal: toNumber(row.computedNetTotal),
+        }
+    })
+
     return (
         <main className="min-h-screen bg-white pt-24 pb-12 px-4 sm:px-6 lg:px-8">
             <div className="max-w-[1400px] mx-auto">
@@ -75,29 +157,10 @@ export default async function CityMediaPage({ params }: { params: { city: string
 
                 <div className="mb-8">
                     <h1 className="text-3xl font-bold text-gray-900">{cityName}</h1>
-                    <p className="text-gray-500 mt-1">Found {cityHoardings.length} advertising locations</p>
+                    <p className="text-gray-500 mt-1">Found {normalizedHoardings.length} advertising locations</p>
                 </div>
 
-                <CityHoardingTable hoardings={cityHoardings.map(h => ({
-                    ...h,
-                    location: h.location ?? (h as any).locationName ?? "",
-                    city: h.city ?? "",
-                    state: (h as any).state ?? "",
-                    // Map outletName to name if name is missing
-                    name: h.name ?? (h as any).outletName ?? "N/A",
-                    // Fix serialization for Decimal types
-                    width: h.width ? Number(h.width) : null,
-                    height: h.height ? Number(h.height) : null,
-                    totalArea: h.totalArea ? Number(h.totalArea) : null,
-                    widthFt: h.widthFt ? Number(h.widthFt) : null,
-                    heightFt: h.heightFt ? Number(h.heightFt) : null,
-                    areaSqft: h.areaSqft ? Number(h.areaSqft) : null,
-                    rate: h.rate ? Number(h.rate) : null,
-                    ratePerSqft: h.ratePerSqft ? Number(h.ratePerSqft) : null,
-                    printingCharge: h.printingCharge ? Number(h.printingCharge) : null,
-                    netTotal: h.netTotal ? Number(h.netTotal) : null,
-                    computedNetTotal: h.computedNetTotal ? Number(h.computedNetTotal) : null,
-                }))} />
+                <CityHoardingTable hoardings={normalizedHoardings} />
             </div>
         </main>
     )

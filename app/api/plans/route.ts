@@ -67,7 +67,7 @@ export async function GET(req: Request) {
         const mine = searchParams.get("mine") === "true"
 
         // Filter Logic
-        let where: any = {}
+        const where: any = {}
         if (mine || session.user.role === "SALES") {
             where.userId = Number(session.user.id)
         }

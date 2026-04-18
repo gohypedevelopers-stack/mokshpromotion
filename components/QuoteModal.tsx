@@ -17,6 +17,8 @@ export default function QuoteModal({ isOpen, onClose, serviceInterest }: QuoteMo
     const { cartItems, clearCart } = useCart()
     const [loading, setLoading] = useState(false)
     const [success, setSuccess] = useState(false)
+    const [errorMessage, setErrorMessage] = useState("")
+    const [warningMessage, setWarningMessage] = useState("")
     const [formData, setFormData] = useState({
         name: "",
         email: "",
@@ -29,6 +31,8 @@ export default function QuoteModal({ isOpen, onClose, serviceInterest }: QuoteMo
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault()
         setLoading(true)
+        setErrorMessage("")
+        setWarningMessage("")
 
         try {
             const res = await fetch("/api/quote", {
@@ -41,16 +45,23 @@ export default function QuoteModal({ isOpen, onClose, serviceInterest }: QuoteMo
                 })
             })
 
-            if (!res.ok) throw new Error("Failed to send quote")
+            const payload = await res.json().catch(() => null)
+            if (!res.ok) {
+                throw new Error(payload?.error || "Failed to send quote request.")
+            }
 
             setSuccess(true)
+            if (payload?.warning) {
+                setWarningMessage(payload.warning)
+            }
             if (!serviceInterest) {
                 // Only clear cart if it was a cart-based quote
                 // clearCart() - Moved to close action
             }
         } catch (error) {
             console.error(error)
-            alert("Something went wrong. Please try again.")
+            const message = error instanceof Error ? error.message : "Something went wrong. Please try again."
+            setErrorMessage(message)
         } finally {
             setLoading(false)
         }
@@ -67,6 +78,11 @@ export default function QuoteModal({ isOpen, onClose, serviceInterest }: QuoteMo
                     <p className="text-gray-600 mb-6">
                         Thanks for your quote request. We will get back to you shortly.
                     </p>
+                    {warningMessage && (
+                        <p className="mb-4 rounded-md border border-amber-200 bg-amber-50 p-3 text-left text-xs text-amber-800">
+                            {warningMessage}
+                        </p>
+                    )}
                     <button
                         onClick={() => {
                             if (!serviceInterest) clearCart()
@@ -132,6 +148,8 @@ export default function QuoteModal({ isOpen, onClose, serviceInterest }: QuoteMo
                                 type="tel"
                                 value={formData.phone}
                                 onChange={(e) => setFormData(prev => ({ ...prev, phone: e.target.value }))}
+                                pattern="[0-9+\-() ]{7,20}"
+                                maxLength={20}
                                 className="w-full p-2 border border-gray-300 rounded focus:ring-2 focus:ring-blue-500 focus:outline-none"
                                 placeholder="+91 98765 43210"
                             />
@@ -156,6 +174,12 @@ export default function QuoteModal({ isOpen, onClose, serviceInterest }: QuoteMo
                             <span>You are enquiring for <strong>{cartItems.length} locations</strong>. We will send a confirmation to your email.</span>
                         )}
                     </div>
+
+                    {errorMessage && (
+                        <div className="rounded border border-red-200 bg-red-50 p-3 text-xs text-red-700">
+                            {errorMessage}
+                        </div>
+                    )}
 
                     <div className="pt-2">
                         <button

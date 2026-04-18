@@ -45,7 +45,7 @@ export async function PATCH(
             }
 
             // Prepare update data
-            let updateData: any = {}
+            const updateData: any = {}
             let logAction = "UPDATE"
             let logDetails = ""
 

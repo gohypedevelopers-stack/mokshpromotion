@@ -6,6 +6,9 @@ const withBundleAnalyzer = bundleAnalyzer({
 
 /** @type {import('next').NextConfig} */
 const nextConfig = {
+    // Keep dev/prod build artifacts separate to avoid stale asset conflicts.
+    distDir: process.env.NEXT_DIST_DIR || '.next',
+
     // Performance optimizations
     compiler: {
         removeConsole: process.env.NODE_ENV === 'production' ? {
