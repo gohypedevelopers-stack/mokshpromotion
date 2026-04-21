@@ -79,7 +79,7 @@ const getPrimaryFrom = () => {
     if (from) return from
     const smtpUser = getSmtpUser()
     if (smtpUser) return `"Moksh CRM" <${smtpUser}>`
-    return '"Moksh CRM" <no-reply@localhost>'
+    return '"Moksh CRM" <no-reply@mokshpromotion.com>'
 }
 
 const getFallbackFrom = () => {

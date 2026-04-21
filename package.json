@@ -3,13 +3,15 @@
   "version": "0.1.0",
   "private": true,
   "scripts": {
-    "dev": "set NEXT_DIST_DIR=.next-dev&& next dev",
-    "dev:turbo": "set NEXT_DIST_DIR=.next-dev&& next dev --turbo",
-    "build": "set NEXT_DIST_DIR=.next-prod&& next build",
-    "start": "set NEXT_DIST_DIR=.next-prod&& next start",
+    "dev": "cross-env NEXT_DIST_DIR=.next-dev next dev",
+    "dev:turbo": "cross-env NEXT_DIST_DIR=.next-dev next dev --turbo",
+    "build": "cross-env NEXT_DIST_DIR=.next next build",
+    "build:local": "cross-env NEXT_DIST_DIR=.next-prod next build",
+    "start": "cross-env NEXT_DIST_DIR=.next next start",
     "lint": "eslint",
     "postinstall": "prisma generate",
-    "analyze": "set ANALYZE=true&& set NEXT_DIST_DIR=.next-prod&& next build"
+    "analyze": "cross-env ANALYZE=true NEXT_DIST_DIR=.next next build",
+    "db:push": "prisma db push --schema prisma/schema.prisma"
   },
   "dependencies": {
     "@hookform/resolvers": "^5.2.2",
@@ -58,6 +60,7 @@
     "postcss": "^8.5.6",
     "prisma": "^5.10.2",
     "tailwindcss": "^3.4.1",
+    "cross-env": "^10.1.0",
     "tsx": "^4.21.0",
     "typescript": "^5"
   },

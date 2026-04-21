@@ -6,6 +6,7 @@ import { generateSecureToken } from "@/lib/discount-utils";
 import { getDiscountApprovalEmailTemplate } from "@/lib/email-templates";
 import { sendEmail } from "@/lib/email";
 import { createAuditLog } from "@/lib/audit";
+import { getAppBaseUrl, getSuperAdminEmail } from "@/lib/runtime-config";
 
 /**
  * POST /api/leads/[id]/discount-request
@@ -71,8 +72,7 @@ export async function POST(
         const finalTotal = baseTotal - discountAmount;
 
         // Get Super Admin email
-        const superAdminEmail =
-            process.env.SUPER_ADMIN_EMAIL || "gohypedevelopers@gmail.com";
+        const superAdminEmail = getSuperAdminEmail();
 
         // Generate secure token for email link
         const { token, hash: tokenHash, expiresAt: tokenExpiresAt } = generateSecureToken(
@@ -98,7 +98,7 @@ export async function POST(
         });
 
         // Build review link
-        const baseUrl = process.env.NEXTAUTH_URL || "http://localhost:3000";
+        const baseUrl = getAppBaseUrl(req);
         const reviewLink = `${baseUrl}/discount-review/${discountRequest.id}?token=${token}`;
 
         // Prepare campaign details for email

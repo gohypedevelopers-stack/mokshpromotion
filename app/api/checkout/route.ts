@@ -1,10 +1,12 @@
 
 import { db } from "@/lib/db"
 import { sendEmail } from "@/lib/email"
+import { getAppBaseUrl } from "@/lib/runtime-config"
 import { NextResponse } from "next/server"
 
 export async function POST(req: Request) {
     try {
+        const appBaseUrl = getAppBaseUrl(req)
         const body = await req.json()
         const { userId, items, totalAmount } = body
 
@@ -78,7 +80,7 @@ export async function POST(req: Request) {
             <p>Hi ${user.name},</p>
             <p>Thank you for your payment of <strong>₹${totalAmount.toLocaleString('en-IN')}</strong>.</p>
             <p>Your campaign order <strong>${project.title}</strong> has been successfully booked.</p>
-            <p>You can check the status of your order in your <a href="${process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000'}/orders">Order History</a>.</p>
+            <p>You can check the status of your order in your <a href="${appBaseUrl}/orders">Order History</a>.</p>
             <br/>
             <h3>Order Details:</h3>
             <ul>

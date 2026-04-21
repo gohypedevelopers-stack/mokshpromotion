@@ -1,6 +1,7 @@
 import { db } from "@/lib/db";
 import { NextResponse } from "next/server";
 import { verifySecureToken } from "@/lib/discount-utils";
+import { getSuperAdminEmail } from "@/lib/runtime-config";
 
 /**
  * GET /api/discount-review/[requestId]
@@ -47,8 +48,7 @@ export async function GET(
         }
 
         // Verify token
-        const superAdminEmail =
-            process.env.SUPER_ADMIN_EMAIL || "gohypedevelopers@gmail.com";
+        const superAdminEmail = getSuperAdminEmail();
 
         if (
             !discountRequest.tokenHash ||

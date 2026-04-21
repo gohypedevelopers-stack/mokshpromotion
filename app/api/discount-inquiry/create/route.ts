@@ -5,6 +5,7 @@ import { createHash } from "crypto"
 import { sendEmail } from "@/lib/email"
 import { getDiscountInquiryAdminEmailTemplate } from "@/lib/email-templates"
 import { generateSecureToken } from "@/lib/discount-utils"
+import { getAppBaseUrl, getSuperAdminEmail } from "@/lib/runtime-config"
 
 export async function POST(req: Request) {
     try {
@@ -57,7 +58,7 @@ export async function POST(req: Request) {
         }
 
         // 5. Generate secure token for direct access
-        const adminEmail = adminUser?.email || process.env.ADMIN_EMAIL || "admin@mokshpromotion.com"
+        const adminEmail = adminUser?.email || getSuperAdminEmail()
         const { token, hash: tokenHash, expiresAt: tokenExpiresAt } = generateSecureToken(
             inquiry.id,
             adminEmail
@@ -72,7 +73,7 @@ export async function POST(req: Request) {
         })
 
         // 6. Send Email
-        const baseUrl = process.env.NEXTAUTH_URL || "http://localhost:3000"
+        const baseUrl = getAppBaseUrl(req)
         const approveLink = `${baseUrl}/discount-inquiry-review/${inquiry.id}?token=${token}`
 
         const { subject, html } = getDiscountInquiryAdminEmailTemplate({

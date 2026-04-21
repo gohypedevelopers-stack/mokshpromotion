@@ -1,6 +1,7 @@
 import { db } from "@/lib/db"
 import { NextResponse } from "next/server"
 import { verifySecureToken } from "@/lib/discount-utils"
+import { getSuperAdminEmail } from "@/lib/runtime-config"
 
 /**
  * GET /api/discount-inquiry-review/[id]
@@ -40,7 +41,7 @@ export async function GET(
             })
         }
 
-        const adminEmail = adminUser?.email || process.env.ADMIN_EMAIL || "admin@mokshpromotion.com"
+        const adminEmail = adminUser?.email || getSuperAdminEmail()
 
         if (
             !(inquiry as any).tokenHash ||

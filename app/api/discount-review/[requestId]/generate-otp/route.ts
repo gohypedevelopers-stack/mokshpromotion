@@ -4,6 +4,7 @@ import { verifySecureToken, generateOTP } from "@/lib/discount-utils";
 import { getOTPEmailTemplate } from "@/lib/email-templates";
 import { sendEmail } from "@/lib/email";
 import { createAuditLog } from "@/lib/audit";
+import { getSuperAdminEmail } from "@/lib/runtime-config";
 
 /**
  * POST /api/discount-review/[requestId]/generate-otp
@@ -47,8 +48,7 @@ export async function POST(
         }
 
         // Verify token
-        const superAdminEmail =
-            process.env.SUPER_ADMIN_EMAIL || "gohypedevelopers@gmail.com";
+        const superAdminEmail = getSuperAdminEmail();
 
         if (
             !discountRequest.tokenHash ||

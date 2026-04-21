@@ -6,6 +6,7 @@ import { getDiscountInquiryClientTemplate } from "@/lib/email-templates"
 import { verifySecureToken } from "@/lib/discount-utils"
 import { getServerSession } from "next-auth"
 import { authOptions } from "@/lib/auth"
+import { getSuperAdminEmail } from "@/lib/runtime-config"
 
 export async function POST(req: Request) {
     try {
@@ -35,7 +36,7 @@ export async function POST(req: Request) {
                 where: { role: "ADMIN" }
             })
         }
-        const adminEmail = adminUser?.email || process.env.ADMIN_EMAIL || "admin@mokshpromotion.com"
+        const adminEmail = adminUser?.email || getSuperAdminEmail()
 
         const isValidToken = verifySecureToken(
             inquiryId,

@@ -1,12 +1,12 @@
 
 import { db } from "@/lib/db"
 import { sendEmail } from "@/lib/email"
+import { getAppBaseUrl, getSuperAdminEmail } from "@/lib/runtime-config"
 import bcrypt from "bcryptjs"
 import { randomBytes, randomInt } from "crypto"
 
 // Constants
-const SUPER_ADMIN_EMAIL = process.env.SUPER_ADMIN_EMAIL || "gohypedevelopers@gmail.com"
-const APP_URL = process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000"
+const SUPER_ADMIN_EMAIL = getSuperAdminEmail()
 
 // -- Service Functions --
 
@@ -59,7 +59,7 @@ export async function createDiscountRequest({
     })
 
     // 4. Email Super Admin
-    const reviewUrl = `${APP_URL}/discount-approval/review?token=${tokenRaw}`
+    const reviewUrl = `${getAppBaseUrl()}/discount-approval/review?token=${tokenRaw}`
 
     // Calculate impact (if lead has baseTotal)
     const baseTotal = Number(request.lead.baseTotal) || 0

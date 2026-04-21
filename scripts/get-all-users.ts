@@ -45,7 +45,7 @@ async function getAllUsers() {
 
         console.log('⚠️  IMPORTANT: Passwords are hashed and cannot be retrieved.')
         console.log('📝 Known passwords from seed scripts:\n')
-        console.log('   Super Admin (gohypedevelopers@gmail.com): SuperAdmin123!')
+        console.log('   Super Admin (SUPER_ADMIN_EMAIL): SUPER_ADMIN_PASSWORD')
         console.log('   Other users: Check individual seed scripts or reset password\n')
 
     } catch (error) {
