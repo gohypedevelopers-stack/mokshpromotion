@@ -1,4 +1,5 @@
 import { db } from "@/lib/db"
+import { Prisma } from "@prisma/client"
 import { notFound } from "next/navigation"
 import DiscountCard from "./DiscountCard"
 import CampaignManager from "@/components/dashboard/CampaignManager"
@@ -14,6 +15,61 @@ import EditLeadModal from "@/components/dashboard/leads/EditLeadModal"
 import PaymentManager from "@/components/dashboard/leads/PaymentManager"
 import TimelineCard from "@/components/admin/TimelineCard"
 
+const LEAD_PAYMENT_ID_SEQUENCE_SYNC_SQL = `
+SELECT setval(
+    pg_get_serial_sequence('"LeadPayment"', 'id'),
+    COALESCE((SELECT MAX(id) FROM "LeadPayment"), 0) + 1,
+    false
+)
+`
+
+const getUniqueTargets = (error: Prisma.PrismaClientKnownRequestError) => {
+    const target = error.meta?.target
+    if (Array.isArray(target)) return target.map(String)
+    if (typeof target === "string") return [target]
+    return []
+}
+
+const ensureLeadPaymentExists = async (leadId: number) => {
+    try {
+        await db.leadPayment.upsert({
+            where: { leadId },
+            create: {
+                leadId,
+                status: "NOT_RAISED",
+            },
+            update: {},
+        })
+        return
+    } catch (error) {
+        if (!(error instanceof Prisma.PrismaClientKnownRequestError) || error.code !== "P2002") {
+            throw error
+        }
+
+        const targets = getUniqueTargets(error)
+
+        // Common case during parallel requests: leadId already created by another request.
+        if (targets.includes("leadId")) {
+            return
+        }
+
+        // Sequence drift on PostgreSQL can raise unique conflict on "id". Self-heal once and retry.
+        if (targets.includes("id")) {
+            await db.$executeRawUnsafe(LEAD_PAYMENT_ID_SEQUENCE_SYNC_SQL)
+            await db.leadPayment.upsert({
+                where: { leadId },
+                create: {
+                    leadId,
+                    status: "NOT_RAISED",
+                },
+                update: {},
+            })
+            return
+        }
+
+        throw error
+    }
+}
 
 
 export default async function LeadDetailPage({ params }: { params: { id: string } }) {
@@ -66,12 +122,13 @@ export default async function LeadDetailPage({ params }: { params: { id: string 
 
     // Self-healing: Ensure LeadPayment exists
     if (!lead.payment) {
-        await db.leadPayment.create({
-            data: {
-                leadId: lead.id,
-                status: "NOT_RAISED"
-            }
-        })
+        try {
+            await ensureLeadPaymentExists(lead.id)
+        } catch (error) {
+            // Do not crash lead page if payment bootstrap fails.
+            console.error(`LeadPayment ensure failed for lead ${lead.id}:`, error)
+        }
+
         // Re-fetch to get the payment relation populated
         lead = await db.lead.findUnique({
             where: { id: leadId },

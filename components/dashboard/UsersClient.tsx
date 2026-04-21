@@ -2,6 +2,7 @@
 
 import { useState } from "react"
 import AddUserModal from "@/components/dashboard/AddUserModal"
+import { formatDateInIndia } from "@/lib/utils"
 
 export default function UsersPage({ users }: { users: any[] }) {
     const [isModalOpen, setIsModalOpen] = useState(false)
@@ -46,7 +47,7 @@ export default function UsersPage({ users }: { users: any[] }) {
                                     </span>
                                 </td>
                                 <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                                    {user.createdAt.toLocaleDateString()}
+                                    {formatDateInIndia(user.createdAt)}
                                 </td>
                             </tr>
                         ))}

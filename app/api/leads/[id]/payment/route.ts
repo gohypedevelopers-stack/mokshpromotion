@@ -1,9 +1,44 @@
 import { db } from "@/lib/db";
+import { Prisma } from "@prisma/client";
 import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { NextResponse } from "next/server";
 import { calculateNextReminder, isPaymentOverdue } from "@/lib/discount-utils";
 import { createAuditLog } from "@/lib/audit";
+
+const LEAD_PAYMENT_ID_SEQUENCE_SYNC_SQL = `
+SELECT setval(
+    pg_get_serial_sequence('"LeadPayment"', 'id'),
+    COALESCE((SELECT MAX(id) FROM "LeadPayment"), 0) + 1,
+    false
+)
+`
+
+const getUniqueTargets = (error: Prisma.PrismaClientKnownRequestError) => {
+    const target = error.meta?.target
+    if (Array.isArray(target)) return target.map(String)
+    if (typeof target === "string") return [target]
+    return []
+}
+
+const upsertLeadPaymentSafely = async (args: Parameters<typeof db.leadPayment.upsert>[0]) => {
+    try {
+        return await db.leadPayment.upsert(args)
+    } catch (error) {
+        if (!(error instanceof Prisma.PrismaClientKnownRequestError) || error.code !== "P2002") {
+            throw error
+        }
+
+        const targets = getUniqueTargets(error)
+
+        if (!targets.includes("id")) {
+            throw error
+        }
+
+        await db.$executeRawUnsafe(LEAD_PAYMENT_ID_SEQUENCE_SYNC_SQL)
+        return db.leadPayment.upsert(args)
+    }
+}
 
 /**
  * GET /api/leads/[id]/payment
@@ -125,7 +160,7 @@ export async function POST(
             : null;
 
         // Create or update payment
-        const payment = await db.leadPayment.upsert({
+        const payment = await upsertLeadPaymentSafely({
             where: { leadId },
             create: {
                 leadId,

@@ -4,6 +4,7 @@ import { useState } from "react"
 import { useRouter } from "next/navigation"
 import { Edit2, UserPlus, Loader2, Search, User, Trash2, Tag } from "lucide-react"
 import { TableShell, Badge, EmptyState } from "./DashboardComponents"
+import { formatDateInIndia } from "@/lib/utils"
 
 interface Lead {
     id: number
@@ -118,24 +119,27 @@ export default function LeadsTable({ initialLeads, currentUserId, currentUserRol
 
         setUpdating(true)
         try {
-            const res = await fetch(`/api/leads/${selectedLead.id}`, {
-                method: "PATCH",
+            const res = await fetch(`/api/leads/${selectedLead.id}/assign`, {
+                method: "PUT",
                 headers: { "Content-Type": "application/json" },
                 body: JSON.stringify({
-                    status: "FOLLOW_UP",
                     assigneeId: Number(targetAssigneeId)
                 })
             })
 
-            if (!res.ok) throw new Error("Failed to assign")
+            if (!res.ok) {
+                const errorText = await res.text()
+                throw new Error(errorText || "Failed to assign lead")
+            }
 
             router.refresh()
             const updated = await res.json()
-            setLeads(prev => prev.map(l => l.id === updated.id ? { ...l, assigneeId: Number(targetAssigneeId), status: "FOLLOW_UP" } : l))
+            setLeads(prev => prev.map(l => l.id === updated.id ? { ...l, ...updated } : l))
             setIsAssignOpen(false)
         } catch (error) {
             console.error(error)
-            alert("Failed to assign lead")
+            const message = error instanceof Error ? error.message : "Failed to assign lead"
+            alert(message)
         } finally {
             setUpdating(false)
         }
@@ -221,7 +225,7 @@ export default function LeadsTable({ initialLeads, currentUserId, currentUserRol
                                                 <div className="flex flex-col gap-0.5">
                                                     <span className="text-xs font-bold text-gray-700 flex items-center gap-1">
                                                         {lead.logs[0].user?.name}
-                                                        <span className="text-[10px] font-normal text-gray-400" suppressHydrationWarning>({new Date(lead.logs[0].createdAt).toLocaleDateString()})</span>
+                                                        <span className="text-[10px] font-normal text-gray-400">({formatDateInIndia(lead.logs[0].createdAt)})</span>
                                                     </span>
                                                     <span className="truncate block text-gray-600" title={lead.logs[0].details}>
                                                         {lead.logs[0].details}
@@ -351,7 +355,7 @@ export default function LeadsTable({ initialLeads, currentUserId, currentUserRol
                                             <div key={log.id} className="text-xs border-b border-gray-100 last:border-0 pb-2 last:pb-0">
                                                 <div className="flex justify-between items-center mb-1">
                                                     <span className="font-semibold text-gray-900">{log.user.name} <span className="text-gray-400 font-normal">({log.user.role})</span></span>
-                                                    <span className="text-gray-400" suppressHydrationWarning>{new Date(log.createdAt).toLocaleDateString()}</span>
+                                                    <span className="text-gray-400">{formatDateInIndia(log.createdAt)}</span>
                                                 </div>
                                                 <p className="text-gray-600 leading-relaxed">{log.details}</p>
                                             </div>

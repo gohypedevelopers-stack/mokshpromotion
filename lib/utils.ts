@@ -13,6 +13,16 @@ export function formatCurrency(amount: number) {
   }).format(amount)
 }
 
+const indiaDateFormatter = new Intl.DateTimeFormat("en-IN", {
+  timeZone: "Asia/Kolkata",
+})
+
+export function formatDateInIndia(value: string | number | Date) {
+  const date = value instanceof Date ? value : new Date(value)
+  if (Number.isNaN(date.getTime())) return "-"
+  return indiaDateFormatter.format(date)
+}
+
 /**
  * Recursively converts Prisma Decimal objects to numbers for serialization
  * to Client Components. Also handles Dates.

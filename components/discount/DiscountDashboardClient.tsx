@@ -2,7 +2,7 @@
 "use client"
 
 import { useState } from "react"
-import { formatCurrency } from "@/lib/utils"
+import { formatCurrency, formatDateInIndia } from "@/lib/utils"
 import { useRouter } from "next/navigation"
 import { toast } from "react-hot-toast"
 import { Loader2, Eye, CheckCircle, XCircle, Filter } from "lucide-react"
@@ -122,7 +122,7 @@ export function DiscountDashboardClient({ initialRequests }: { initialRequests: 
                                     </span>
                                 </td>
                                 <td className="p-4 text-gray-500">
-                                    {new Date(req.createdAt).toLocaleDateString()}
+                                    {formatDateInIndia(req.createdAt)}
                                 </td>
                                 <td className="p-4">
                                     <button

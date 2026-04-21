@@ -4,6 +4,7 @@ import { useState } from "react"
 import { useRouter } from "next/navigation"
 import { Badge } from "./DashboardComponents"
 import { Phone, User, FileText, Printer, Hammer, Loader2, CheckCircle, Mail, MapPin, CreditCard, X } from "lucide-react"
+import { formatDateInIndia } from "@/lib/utils"
 
 export default function OpsKanban({ leads, currentUserId }: { leads: any[], currentUserId: number }) {
     const router = useRouter()
@@ -75,7 +76,7 @@ export default function OpsKanban({ leads, currentUserId }: { leads: any[], curr
                                 <span className="text-[10px] font-bold tracking-wider text-gray-500 bg-gray-50 px-1.5 py-0.5 rounded border border-gray-100 uppercase">
                                     {lead.status.replace(/_/g, ' ')}
                                 </span>
-                                <span className="text-[10px] text-gray-400" suppressHydrationWarning>{new Date(lead.updatedAt).toLocaleDateString()}</span>
+                                <span className="text-[10px] text-gray-400">{formatDateInIndia(lead.updatedAt)}</span>
                             </div>
                             <h4 className="text-sm font-bold text-gray-900 mb-1 ml-2 truncate">{lead.customerName}</h4>
                             <div className="ml-2 text-xs text-gray-500 mb-2 space-y-0.5">
@@ -160,8 +161,8 @@ export default function OpsKanban({ leads, currentUserId }: { leads: any[], curr
                                             <div>
                                                 <p className="text-[10px] text-gray-400 uppercase tracking-wide font-bold mb-1">Dates</p>
                                                 <div className="space-y-1 text-xs">
-                                                    <p className="text-gray-700"><span className="text-gray-400 inline-block w-14">Created:</span> <span suppressHydrationWarning>{new Date(selectedLead.createdAt).toLocaleDateString()}</span></p>
-                                                    <p className="text-gray-700"><span className="text-gray-400 inline-block w-14">Updated:</span> <span suppressHydrationWarning>{new Date(selectedLead.updatedAt).toLocaleDateString()}</span></p>
+                                                    <p className="text-gray-700"><span className="text-gray-400 inline-block w-14">Created:</span> <span>{formatDateInIndia(selectedLead.createdAt)}</span></p>
+                                                    <p className="text-gray-700"><span className="text-gray-400 inline-block w-14">Updated:</span> <span>{formatDateInIndia(selectedLead.updatedAt)}</span></p>
                                                 </div>
                                             </div>
                                             <div className="col-span-2 md:col-span-1 border-t md:border-t-0 md:border-l border-gray-100 pt-3 md:pt-0 md:pl-4">
@@ -243,7 +244,7 @@ export default function OpsKanban({ leads, currentUserId }: { leads: any[], curr
 
                                                                 {item.startDate && item.endDate ? (
                                                                     <span className="text-[10px] bg-blue-50 text-blue-700 px-1.5 py-0.5 rounded border border-blue-100 font-medium whitespace-nowrap mt-1">
-                                                                        {new Date(item.startDate).toLocaleDateString()} - {new Date(item.endDate).toLocaleDateString()}
+                                                                        {formatDateInIndia(item.startDate)} - {formatDateInIndia(item.endDate)}
                                                                     </span>
                                                                 ) : (
                                                                     <span className="text-[10px] text-gray-400 italic mt-1">Schedule: Not set</span>
@@ -363,7 +364,7 @@ export default function OpsKanban({ leads, currentUserId }: { leads: any[], curr
                                                         <div className="absolute -left-[3px] top-1.5 w-1.5 h-1.5 rounded-full bg-blue-300"></div>
                                                         <div className="flex justify-between items-start mb-0.5">
                                                             <span className="font-bold text-gray-900">{log.user?.name}</span>
-                                                            <span className="text-[9px] text-gray-400" suppressHydrationWarning>{new Date(log.createdAt).toLocaleDateString()}</span>
+                                                            <span className="text-[9px] text-gray-400">{formatDateInIndia(log.createdAt)}</span>
                                                         </div>
                                                         <p className="text-gray-600 leading-relaxed bg-white p-1.5 rounded border border-gray-100 shadow-sm">{log.details}</p>
                                                     </div>

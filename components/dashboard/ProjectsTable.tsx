@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation"
 import { ArrowRight, FileText, Loader2, Tag, Building2, UserCircle, DollarSign } from "lucide-react"
 import DiscountRequestModal from "./DiscountRequestModal"
 import { TableShell, Badge, EmptyState } from "./DashboardComponents"
+import { formatDateInIndia } from "@/lib/utils"
 
 interface UnifiedProject {
     id: string
@@ -14,7 +15,7 @@ interface UnifiedProject {
     customerName: string
     customerCompany: string
     status: string
-    createdAt: Date
+    createdAt: string | Date
     assigneeName: string
     paymentStatus: string
     discountPct?: number | null
@@ -121,7 +122,7 @@ export default function ProjectsTable({ projects }: ProjectsTableProps) {
                                                 <div className="text-xs text-gray-500 mt-1 flex items-center gap-2">
                                                     <span className="font-mono bg-gray-100 px-1 rounded text-gray-600">ID: #{project.originalId}</span>
                                                     <span className="text-gray-300">|</span>
-                                                    <span>{new Date(project.createdAt).toLocaleDateString()}</span>
+                                                    <span>{formatDateInIndia(project.createdAt)}</span>
                                                 </div>
                                             </div>
                                         </div>

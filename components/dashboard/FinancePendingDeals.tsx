@@ -4,6 +4,7 @@ import { useState } from "react"
 import { useRouter } from "next/navigation"
 import { Badge } from "./DashboardComponents"
 import { FileText, Phone, User, ArrowUpRight, Loader2, ArrowRight } from "lucide-react"
+import { formatDateInIndia } from "@/lib/utils"
 
 interface Lead {
     id: number
@@ -109,7 +110,7 @@ export default function FinancePendingDeals({ deals, opsUsers }: { deals: any[],
                                     <span className="flex items-center gap-1"><Phone className="w-3 h-3" /> {deal.phone}</span>
                                 </div>
                                 <div className="text-xs text-gray-400 flex justify-between items-center">
-                                    <span suppressHydrationWarning>Referral Date: {new Date(deal.updatedAt).toLocaleDateString()}</span>
+                                    <span>Referral Date: {formatDateInIndia(deal.updatedAt)}</span>
                                     <ArrowUpRight className="w-4 h-4 text-gray-300 group-hover:text-blue-500 transition-colors" />
                                 </div>
                             </div>
@@ -167,7 +168,7 @@ export default function FinancePendingDeals({ deals, opsUsers }: { deals: any[],
                                             <div key={log.id} className="text-xs border-b border-gray-100 last:border-0 pb-2 last:pb-0">
                                                 <div className="flex justify-between items-center mb-1">
                                                     <span className="font-semibold text-gray-900">{log.user.name} <span className="text-gray-400 font-normal">({log.user.role})</span></span>
-                                                    <span className="text-gray-400" suppressHydrationWarning>{new Date(log.createdAt).toLocaleDateString()}</span>
+                                                    <span className="text-gray-400">{formatDateInIndia(log.createdAt)}</span>
                                                 </div>
                                                 <p className="text-gray-600 leading-relaxed">{log.details}</p>
                                             </div>
